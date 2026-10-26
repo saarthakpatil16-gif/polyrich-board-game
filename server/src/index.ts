@@ -54,7 +54,7 @@ const io = new Server(server, {
 
 setupGameSockets(io);
 
-server.listen(PORT, '0.0.0.0', () => {
+server.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`🎮 Custom 6-Player Board Game Server running on port ${PORT}`);
   console.log(`📁 Uploads served from ${uploadsPath}`);
   console.log(`📡 WebSocket ready for real-time multiplayer`);
