@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#070914] text-slate-100 font-sans antialiased overflow-x-hidden;
+  }
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0d1021;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #252e50;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3b4777;
+}
+
+/* 3D Dice Tumbling Animation */
+@keyframes dice-roll {
+  0% {
+    transform: rotate(0deg) scale(1) translateY(0);
+  }
+  20% {
+    transform: rotate(-35deg) scale(1.15) translateY(-8px);
+  }
+  40% {
+    transform: rotate(45deg) scale(0.9) translateY(4px);
+  }
+  60% {
+    transform: rotate(-25deg) scale(1.1) translateY(-6px);
+  }
+  80% {
+    transform: rotate(20deg) scale(0.95) translateY(2px);
+  }
+  100% {
+    transform: rotate(0deg) scale(1) translateY(0);
+  }
+}
+
+.animate-dice-shake {
+  animation: dice-roll 0.25s infinite ease-in-out;
+}
+
+/* Pawn Hopping Animation */
+@keyframes pawn-hop {
+  0% {
+    transform: translate(var(--pawn-x, 0px), var(--pawn-y, 0px)) scale(1);
+  }
+  50% {
+    transform: translate(var(--pawn-x, 0px), calc(var(--pawn-y, 0px) - 14px)) scale(1.35);
+  }
+  100% {
+    transform: translate(var(--pawn-x, 0px), var(--pawn-y, 0px)) scale(1);
+  }
+}
+
+.animate-pawn-hop {
+  animation: pawn-hop 0.22s ease-out;
+}

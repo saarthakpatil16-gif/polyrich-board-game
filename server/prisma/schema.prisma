@@ -1,0 +1,201 @@
+// Prisma Schema for Custom 6-Player Board Game
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Room {
+  id              String         @id @default(uuid())
+  code            String         @unique
+  hostSessionId   String
+  status          String         @default("LOBBY") // LOBBY, PLAYING, FINISHED
+  currentTurnIdx  Int            @default(0)
+  currentRound    Int            @default(1)
+  turnExpiresAt   DateTime?
+  pendingAction   String?        // 'ROLL' | 'ACTION_DECISION' | 'BANKRUPT'
+  activePlayerId  String?
+  dice1           Int            @default(1)
+  dice2           Int            @default(1)
+  lastRollTotal   Int            @default(2)
+  winnerPlayerId  String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  boardConfig     BoardConfig?   @relation(fields: [boardConfigId], references: [id])
+  boardConfigId   String?
+
+  players         Player[]
+  transactions    GameTransaction[]
+}
+
+model Player {
+  id            String    @id @default(uuid())
+  roomId        String
+  room          Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sessionId     String    // UUID stored in player's browser for reconnection
+  name          String
+  avatar        String    @default("token-1")
+  color         String    @default("#6366f1")
+  isHost        Boolean   @default(false)
+  isReady       Boolean   @default(false)
+  money         Int       @default(1500)
+  position      Int       @default(0)
+  inJail        Boolean   @default(false)
+  jailTurns     Int       @default(0)
+  isBankrupt    Boolean   @default(false)
+  isConnected   Boolean   @default(true)
+  orderIndex    Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  properties    PropertyOwnership[]
+}
+
+model BoardConfig {
+  id          String         @id @default(uuid())
+  name        String         @default("Standard Expanded (48 Tiles)")
+  description String         @default("Expanded board with 2 extra places per side (+8 tiles total)")
+  totalTiles  Int            @default(48)
+  isTemplate  Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  rooms       Room[]
+  tiles       BoardTile[]
+  rewards     RewardDef[]
+  punishments PunishmentDef[]
+  rules       GameRules?
+  templates   BoardTemplate[]
+}
+
+model BoardTile {
+  id               String       @id @default(uuid())
+  boardConfigId    String
+  boardConfig      BoardConfig  @relation(fields: [boardConfigId], references: [id], onDelete: Cascade)
+  index            Int          // 0 to totalTiles - 1
+  name             String
+  type             String       // START, PROPERTY, REWARD, PUNISHMENT, TAX, JAIL, CHANCE, TRANS, BONUS, MOVE_TO, CUSTOM
+  colorGroup       String?      // Hex color for district
+  district         String?      // e.g. "Tech District", "Marina"
+  description      String?
+  imageUrl         String?      // user uploaded photograph
+  imageFit         String       @default("cover") // cover or contain
+  price            Int          @default(0)
+  baseRent         Int          @default(0)
+  rentLevel1       Int          @default(0)
+  rentLevel2       Int          @default(0)
+  rentLevel3       Int          @default(0)
+  upgradeCost      Int          @default(0)
+  canBuy           Boolean      @default(false)
+  canTrade         Boolean      @default(true)
+  rewardId         String?
+  punishmentId     String?
+  specialEffect    String?
+  destinationIndex Int?
+  isEnabled        Boolean      @default(true)
+
+  ownerships       PropertyOwnership[]
+}
+
+model PropertyOwnership {
+  id            String    @id @default(uuid())
+  playerId      String
+  player        Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  tileId        String
+  tile          BoardTile @relation(fields: [tileId], references: [id], onDelete: Cascade)
+  level         Int       @default(0) // 0: base, 1: upgrade 1, 2: upgrade 2, etc.
+  createdAt     DateTime  @default(now())
+
+  @@unique([tileId])
+}
+
+model RewardDef {
+  id             String       @id @default(uuid())
+  boardConfigId  String
+  boardConfig    BoardConfig  @relation(fields: [boardConfigId], references: [id], onDelete: Cascade)
+  name           String
+  description    String
+  moneyGain      Int          @default(100)
+  movementSpaces Int          @default(0)
+  bonusTurn      Boolean      @default(false)
+  execution      String       @default("AUTO") // AUTO or CONFIRM
+  imageUrl       String?
+  createdAt      DateTime     @default(now())
+}
+
+model PunishmentDef {
+  id             String       @id @default(uuid())
+  boardConfigId  String
+  boardConfig    BoardConfig  @relation(fields: [boardConfigId], references: [id], onDelete: Cascade)
+  name           String
+  description    String
+  moneyLoss      Int          @default(100)
+  fineRecipient  String       @default("BANK") // BANK, NEXT_PLAYER, ALL_PLAYERS
+  movementSpaces Int          @default(0)
+  skipTurns      Int          @default(0)
+  destinationTile Int?
+  execution      String       @default("AUTO")
+  imageUrl       String?
+  createdAt      DateTime     @default(now())
+}
+
+model GameRules {
+  id                   String       @id @default(uuid())
+  boardConfigId        String       @unique
+  boardConfig          BoardConfig  @relation(fields: [boardConfigId], references: [id], onDelete: Cascade)
+  startingCash         Int          @default(1500)
+  passStartBonus       Int          @default(200)
+  diceCount            Int          @default(2)
+  diceSides            Int          @default(6)
+  turnTimerSec         Int          @default(45)
+  bankruptcyThreshold  Int          @default(0)
+  allowNegativeBalance Boolean      @default(false)
+  eliminationEnabled   Boolean      @default(true)
+  tradingEnabled       Boolean      @default(true)
+  maxRounds            Int          @default(50)
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+}
+
+model GameTransaction {
+  id          String    @id @default(uuid())
+  roomId      String
+  room        Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  round       Int       @default(1)
+  playerId    String?
+  type        String    // ROLL, BUY, RENT, REWARD, PUNISHMENT, START_BONUS, BANKRUPT, ELIMINATE
+  amount      Int       @default(0)
+  details     String
+  createdAt   DateTime  @default(now())
+}
+
+model UploadedAsset {
+  id          String    @id @default(uuid())
+  filename    String
+  originalName String
+  mimeType    String
+  size        Int
+  url         String
+  createdAt   DateTime  @default(now())
+}
+
+// ------------------------------------------------------------
+// Board Template model – persists custom board configurations as reusable templates
+// ------------------------------------------------------------
+model BoardTemplate {
+  id            String   @id @default(uuid())
+  ownerId       String   // references a Player who created the template
+  boardConfig   BoardConfig @relation(fields: [boardConfigId], references: [id], onDelete: Cascade)
+  boardConfigId String   @unique
+  name          String   @default("Untitled Template")
+  description   String?
+  version       Int      @default(1)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([ownerId])
+}

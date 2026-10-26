@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      - CLIENT_ORIGIN=*
+      - DATABASE_URL=file:/app/data/prod.db
+      - NODE_ENV=production
+    volumes:
+      - server_data:/app/data
+      - uploads_data:/app/uploads
+    restart: unless-stopped
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      - server
+    restart: unless-stopped
+
+  # Optional public HTTPS entry point. Set DOMAIN in .env and point its DNS
+  # A/AAAA records at this machine before starting the production profile.
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["production"]
+    environment:
+      - DOMAIN=${DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - client
+    restart: unless-stopped
+
+volumes:
+  server_data:
+  uploads_data:
+  caddy_data:
+  caddy_config:

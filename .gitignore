@@ -1,0 +1,23 @@
+# Dependencies and generated builds
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+
+# Local secrets and runtime state
+.env
+.env.*
+!.env.example
+server/.env
+server/data/
+server/uploads/
+*.db
+*.sqlite
+*.sqlite-journal
+*.log
+
+# Editor and OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
