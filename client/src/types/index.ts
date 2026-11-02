@@ -184,6 +184,8 @@ export interface BoardTemplateDTO {
   rewards: RewardDTO[];
   punishments: PunishmentDTO[];
   rules: GameRulesDTO;
+  userId?: string;
+  userEmail?: string;
   updatedAt: string;
 }
 

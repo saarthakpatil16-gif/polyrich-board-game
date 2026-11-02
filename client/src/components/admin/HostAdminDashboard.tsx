@@ -8,6 +8,7 @@ import {
 } from '../../types';
 import { api } from '../../services/api';
 import { soundFX } from '../../utils/audio';
+import { GoogleUserProfile } from '../../services/googleAuth';
 import { 
   LayoutGrid, 
   MapPin, 
@@ -40,6 +41,7 @@ interface HostAdminDashboardProps {
   initialRewards: RewardDTO[];
   initialPunishments: PunishmentDTO[];
   initialRules: GameRulesDTO;
+  googleUser?: GoogleUserProfile | null;
   onClose: () => void;
   onSaved: (tiles: BoardTileDTO[], rewards: RewardDTO[], punishments: PunishmentDTO[], rules: GameRulesDTO) => void;
 }
@@ -51,6 +53,7 @@ export const HostAdminDashboard: React.FC<HostAdminDashboardProps> = ({
   initialRewards,
   initialPunishments,
   initialRules,
+  googleUser,
   onClose,
   onSaved,
 }) => {
@@ -217,15 +220,18 @@ export const HostAdminDashboard: React.FC<HostAdminDashboardProps> = ({
       await api.savePunishments(roomCode, hostSessionId, punishments);
       await api.saveRules(roomCode, hostSessionId, rules);
 
-      const previousTemplate = await api.getDefaultTemplate();
+      const userIdent = googleUser?.email || googleUser?.sub;
+      const previousTemplate = await api.getDefaultTemplate(userIdent);
       const savedTemplate = await api.saveTemplate({
         name: previousTemplate?.name || 'My Custom Board',
-        description: 'Host saved board template',
+        description: `Host saved board template${googleUser?.email ? ` (${googleUser.email})` : ''}`,
         tiles,
         rewards,
         punishments,
         rules,
-        existingId: previousTemplate?.id
+        existingId: previousTemplate?.id,
+        userId: googleUser?.sub,
+        userEmail: googleUser?.email
       });
       localStorage.setItem('polyrich_custom_template', JSON.stringify(savedTemplate.template));
 
@@ -1317,19 +1323,22 @@ export const HostAdminDashboard: React.FC<HostAdminDashboardProps> = ({
                       const tName = prompt('Enter a name for this reusable template:', 'My Custom Board');
                       if (!tName) return;
                       try {
-                      const previousTemplate = await api.getDefaultTemplate();
+                      const userIdent = googleUser?.email || googleUser?.sub;
+                      const previousTemplate = await api.getDefaultTemplate(userIdent);
                       const savedTpl = await api.saveTemplate({
-                          name: tName,
-                          description: 'Host custom board template',
-                          tiles,
-                          rewards,
-                          punishments,
+                        name: tName,
+                        description: `Host custom board template${googleUser?.email ? ` (${googleUser.email})` : ''}`,
+                        tiles,
+                        rewards,
+                        punishments,
                         rules,
-                        existingId: previousTemplate?.id
-                        });
-                        localStorage.setItem('polyrich_custom_template', JSON.stringify(savedTpl.template));
-                        soundFX.playCash();
-                        alert(`Template "${tName}" saved! Future rooms will automatically load this board.`);
+                        existingId: previousTemplate?.id,
+                        userId: googleUser?.sub,
+                        userEmail: googleUser?.email
+                      });
+                      localStorage.setItem('polyrich_custom_template', JSON.stringify(savedTpl.template));
+                      soundFX.playCash();
+                      alert(`Template "${tName}" saved to your Google account! Future gameplay will automatically load this board.`);
                       } catch (err: any) {
                         alert(`Error saving template: ${err.message}`);
                       }

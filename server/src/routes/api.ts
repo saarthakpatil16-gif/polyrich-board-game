@@ -581,14 +581,23 @@ router.post('/rooms/:code/editor/validate', (req: Request, res: Response) => {
 
 // =================== TEMPLATES & PRESETS ===================
 
-router.get('/templates', (_req: Request, res: Response) => {
+router.get('/templates', (req: Request, res: Response) => {
+  const userIdentifier = (req.query.userId || req.query.userEmail) as string | undefined;
   return res.json({
-    templates: roomManager.getTemplates()
+    templates: roomManager.getTemplates(userIdentifier)
   });
 });
 
-router.get('/templates/default', (_req: Request, res: Response) => {
-  return res.json(roomManager.getDefaultTemplate());
+router.get('/templates/default', (req: Request, res: Response) => {
+  const userIdentifier = (req.query.userId || req.query.userEmail) as string | undefined;
+  return res.json(roomManager.getDefaultTemplate(userIdentifier));
+});
+
+router.get('/templates/user/:userIdentifier', (req: Request, res: Response) => {
+  const userIdentifier = req.params.userIdentifier as string;
+  return res.json({
+    templates: roomManager.getUserTemplates(userIdentifier)
+  });
 });
 
 router.get('/templates/:id', (req: Request, res: Response) => {
@@ -600,7 +609,7 @@ router.get('/templates/:id', (req: Request, res: Response) => {
 
 router.post('/templates', (req: Request, res: Response) => {
   try {
-    const { name, description, tiles, rewards, punishments, rules, existingId } = req.body;
+    const { name, description, tiles, rewards, punishments, rules, existingId, userId, userEmail } = req.body;
     const template = roomManager.saveTemplate(
       name,
       description,
@@ -608,7 +617,9 @@ router.post('/templates', (req: Request, res: Response) => {
       rewards,
       punishments,
       rules,
-      existingId
+      existingId,
+      userId,
+      userEmail
     );
     return res.status(201).json({
       success: true,

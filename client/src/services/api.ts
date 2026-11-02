@@ -302,18 +302,32 @@ export const api = {
   },
 
   /**
-   * Get default template
+   * Get default template (optionally for a specific user)
    */
-  async getDefaultTemplate() {
-    const res = await fetch(`${API_BASE}/templates/default`);
+  async getDefaultTemplate(userIdentifier?: string) {
+    const url = userIdentifier 
+      ? `${API_BASE}/templates/default?userEmail=${encodeURIComponent(userIdentifier)}`
+      : `${API_BASE}/templates/default`;
+    const res = await fetch(url);
     return res.json();
   },
 
   /**
    * Get all saved board templates
    */
-  async getTemplates() {
-    const res = await fetch(`${API_BASE}/templates`);
+  async getTemplates(userIdentifier?: string) {
+    const url = userIdentifier
+      ? `${API_BASE}/templates?userEmail=${encodeURIComponent(userIdentifier)}`
+      : `${API_BASE}/templates`;
+    const res = await fetch(url);
+    return res.json();
+  },
+
+  /**
+   * Get custom templates saved by a specific Google user
+   */
+  async getUserTemplates(userIdentifier: string) {
+    const res = await fetch(`${API_BASE}/templates/user/${encodeURIComponent(userIdentifier)}`);
     return res.json();
   },
 
@@ -328,6 +342,8 @@ export const api = {
     punishments: any[];
     rules: any;
     existingId?: string;
+    userId?: string;
+    userEmail?: string;
   }) {
     const res = await fetch(`${API_BASE}/templates`, {
       method: 'POST',

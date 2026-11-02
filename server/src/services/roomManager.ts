@@ -122,7 +122,9 @@ export class RoomManager {
     rewards: RewardDTO[],
     punishments: PunishmentDTO[],
     rules: GameRulesDTO,
-    existingId?: string
+    existingId?: string,
+    userId?: string,
+    userEmail?: string
   ): BoardTemplateDTO {
     const id = existingId || `tpl-${Date.now()}-${uuidv4().slice(0, 6)}`;
     const template: BoardTemplateDTO = {
@@ -133,6 +135,8 @@ export class RoomManager {
       rewards: JSON.parse(JSON.stringify(rewards)),
       punishments: JSON.parse(JSON.stringify(punishments)),
       rules: JSON.parse(JSON.stringify(rules)),
+      userId,
+      userEmail,
       updatedAt: new Date().toISOString()
     };
     this.templates.set(id, template);
@@ -141,15 +145,29 @@ export class RoomManager {
     return template;
   }
 
-  public getTemplates(): BoardTemplateDTO[] {
-    return Array.from(this.templates.values());
+  public getTemplates(userIdentifier?: string): BoardTemplateDTO[] {
+    const all = Array.from(this.templates.values());
+    if (!userIdentifier) return all;
+    return all.filter(t => !t.userId || t.userId === userIdentifier || t.userEmail === userIdentifier || t.id.startsWith('default-'));
+  }
+
+  public getUserTemplates(userIdentifier: string): BoardTemplateDTO[] {
+    if (!userIdentifier) return [];
+    return Array.from(this.templates.values()).filter(t => t.userId === userIdentifier || t.userEmail === userIdentifier);
   }
 
   public getTemplate(id: string): BoardTemplateDTO | undefined {
     return this.templates.get(id);
   }
 
-  public getDefaultTemplate(): BoardTemplateDTO {
+  public getDefaultTemplate(userIdentifier?: string): BoardTemplateDTO {
+    if (userIdentifier) {
+      const userTemplates = this.getUserTemplates(userIdentifier);
+      if (userTemplates.length > 0) {
+        // Return latest user template
+        return userTemplates[userTemplates.length - 1];
+      }
+    }
     return this.templates.get(this.defaultTemplateId) || this.templates.get('default-expanded-48')!;
   }
 

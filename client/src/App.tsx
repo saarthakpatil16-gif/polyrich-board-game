@@ -6,19 +6,14 @@ import { soundFX } from './utils/audio';
 import { LobbyPage } from './pages/LobbyPage';
 import { GamePage } from './pages/GamePage';
 import { HostAdminDashboard } from './components/admin/HostAdminDashboard';
+import { GoogleAuthModal } from './components/modals/GoogleAuthModal';
+import { googleAuth, GoogleUserProfile } from './services/googleAuth';
 import { Plus, ArrowRight, Dices, Sparkles, Shield, Trophy, Check, Sliders, User, LogOut as LogOutIcon } from 'lucide-react';
 
 const SESSION_KEY = 'polyrich_session_id';
 const ROOM_KEY = 'polyrich_room_code';
 const TEMPLATE_KEY = 'polyrich_custom_template';
 const GOOGLE_USER_KEY = 'polyrich_google_user';
-
-export interface GoogleUserProfile {
-  email: string;
-  name: string;
-  picture?: string;
-  sub: string;
-}
 
 // Use sessionStorage (tab-scoped) with fallback to localStorage
 // This allows testing multiple players/tabs on the same browser without session hijacking
@@ -42,6 +37,7 @@ const saveSessionForRoom = (roomCode: string, sessionId: string) => {
 export function App() {
   const [screen, setScreen] = useState<'HOME' | 'LOBBY' | 'GAME'>('HOME');
   const [isEditorOpen, setIsEditorOpen] = useState<boolean>(false);
+  const [isGoogleModalOpen, setIsGoogleModalOpen] = useState<boolean>(false);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
 
   // Player & Game State
@@ -58,12 +54,7 @@ export function App() {
 
   // Google User Profile state
   const [googleUser, setGoogleUser] = useState<GoogleUserProfile | null>(() => {
-    try {
-      const stored = localStorage.getItem(GOOGLE_USER_KEY);
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
+    return googleAuth.getStoredUser();
   });
 
   // Initialize from URL params or local storage for automatic reconnection & template load
@@ -89,7 +80,8 @@ export function App() {
 
     // Templates are stored on the server so the host can use the same default
     // board from another browser or device.
-    api.getDefaultTemplate().then((template) => {
+    const userIdent = googleUser?.email || googleUser?.sub;
+    api.getDefaultTemplate(userIdent).then((template) => {
       if (template?.id) {
         setSavedTemplate(template);
         localStorage.setItem(TEMPLATE_KEY, JSON.stringify(template));
@@ -160,27 +152,28 @@ export function App() {
     soundFX.enabled = next;
   };
 
-  // Google Sign-In helper (supports Google OAuth callback or simulated direct sign-in)
-  const handleGoogleLogin = (customName?: string, customEmail?: string) => {
-    const name = customName || playerName.trim() || 'Google Player';
-    const email = customEmail || `${name.toLowerCase().replace(/\s+/g, '.')}@gmail.com`;
-    const profile: GoogleUserProfile = {
-      name,
-      email,
-      sub: `g-${Date.now()}`,
-      picture: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(email)}`
-    };
-    setGoogleUser(profile);
-    localStorage.setItem(GOOGLE_USER_KEY, JSON.stringify(profile));
+  // Google Sign-In handlers: syncs profile and user's custom templates
+  const handleGoogleSuccess = async (user: GoogleUserProfile) => {
+    setGoogleUser(user);
     if (!playerName.trim()) {
-      setPlayerName(name);
+      setPlayerName(user.name);
     }
-    soundFX.playCash();
+    // Fetch and load custom board template linked to this Google account
+    try {
+      const userIdent = user.email || user.sub;
+      const tpl = await api.getDefaultTemplate(userIdent);
+      if (tpl?.id) {
+        setSavedTemplate(tpl);
+        localStorage.setItem(TEMPLATE_KEY, JSON.stringify(tpl));
+      }
+    } catch (e) {
+      console.warn('Could not sync user template:', e);
+    }
   };
 
   const handleGoogleLogout = () => {
+    googleAuth.signOut();
     setGoogleUser(null);
-    localStorage.removeItem(GOOGLE_USER_KEY);
     soundFX.playClick();
   };
 
@@ -587,13 +580,22 @@ export function App() {
                     <span className="text-[10px] text-slate-400 leading-tight block truncate max-w-[160px]">{googleUser.email}</span>
                   </div>
                 </div>
-                <button
-                  onClick={handleGoogleLogout}
-                  className="p-1.5 rounded-lg bg-slate-800/70 hover:bg-slate-700 text-slate-400 hover:text-white transition"
-                  title="Sign out of Google"
-                >
-                  <LogOutIcon className="w-3.5 h-3.5" />
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => { soundFX.playClick(); setIsGoogleModalOpen(true); }}
+                    className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition text-[11px] font-semibold px-2"
+                    title="Account details & cloud boards"
+                  >
+                    Account
+                  </button>
+                  <button
+                    onClick={handleGoogleLogout}
+                    className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white transition"
+                    title="Sign out of Google"
+                  >
+                    <LogOutIcon className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="flex items-center justify-between w-full">
@@ -602,7 +604,7 @@ export function App() {
                   <span className="text-[10px] text-slate-400">Save custom boards to your account</span>
                 </div>
                 <button
-                  onClick={() => handleGoogleLogin()}
+                  onClick={() => { soundFX.playClick(); setIsGoogleModalOpen(true); }}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white hover:bg-slate-100 text-slate-900 shadow-md transition active:scale-95"
                 >
                   <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
@@ -611,7 +613,7 @@ export function App() {
                     <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
                     <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
                   </svg>
-                  Google
+                  Sign In
                 </button>
               </div>
             )}
@@ -712,6 +714,14 @@ export function App() {
             </div>
           </div>
         </div>
+
+        <GoogleAuthModal
+          isOpen={isGoogleModalOpen}
+          onClose={() => setIsGoogleModalOpen(false)}
+          currentUser={googleUser}
+          onLoginSuccess={handleGoogleSuccess}
+          onLogout={handleGoogleLogout}
+        />
       </div>
     );
   }
@@ -739,10 +749,18 @@ export function App() {
             initialRewards={gameState.rewards}
             initialPunishments={gameState.punishments}
             initialRules={gameState.rules}
+            googleUser={googleUser}
             onClose={() => setIsEditorOpen(false)}
             onSaved={handleBoardSaved}
           />
         )}
+        <GoogleAuthModal
+          isOpen={isGoogleModalOpen}
+          onClose={() => setIsGoogleModalOpen(false)}
+          currentUser={googleUser}
+          onLoginSuccess={handleGoogleSuccess}
+          onLogout={handleGoogleLogout}
+        />
       </>
     );
   }
@@ -779,10 +797,18 @@ export function App() {
             initialRewards={gameState.rewards}
             initialPunishments={gameState.punishments}
             initialRules={gameState.rules}
+            googleUser={googleUser}
             onClose={() => setIsEditorOpen(false)}
             onSaved={handleBoardSaved}
           />
         )}
+        <GoogleAuthModal
+          isOpen={isGoogleModalOpen}
+          onClose={() => setIsGoogleModalOpen(false)}
+          currentUser={googleUser}
+          onLoginSuccess={handleGoogleSuccess}
+          onLogout={handleGoogleLogout}
+        />
       </>
     );
   }
