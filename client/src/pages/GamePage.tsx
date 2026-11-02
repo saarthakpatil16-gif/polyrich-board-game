@@ -344,7 +344,7 @@ export const GamePage: React.FC<GamePageProps> = ({
                         <div className="flex gap-0.5 px-1 pb-1 pt-0.5">
                           {canUpgrade && (
                             <button
-                              onClick={(e) => { e.stopPropagation(); onUpgradeProperty(tile.id); }}
+                              onClick={(e: React.MouseEvent) => { e.stopPropagation(); onUpgradeProperty(tile.id); }}
                               className="flex-1 flex items-center justify-center gap-0.5 py-1 rounded-lg text-[8px] sm:text-[9px] font-bold bg-amber-600/30 hover:bg-amber-600/60 text-amber-300 border border-amber-600/40 transition active:scale-95"
                               title={`Upgrade for $${tile.upgradeCost}`}
                             >
@@ -354,7 +354,7 @@ export const GamePage: React.FC<GamePageProps> = ({
                           )}
                           {canMortgage && (
                             <button
-                              onClick={(e) => { e.stopPropagation(); onMortgageProperty(tile.id); }}
+                              onClick={(e: React.MouseEvent) => { e.stopPropagation(); onMortgageProperty(tile.id); }}
                               className="flex-1 flex items-center justify-center gap-0.5 py-1 rounded-lg text-[8px] sm:text-[9px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600/40 transition active:scale-95"
                               title={`Mortgage for $${Math.round(tile.price * 0.5)}`}
                             >
@@ -364,7 +364,7 @@ export const GamePage: React.FC<GamePageProps> = ({
                           )}
                           {canUnmortgage && (
                             <button
-                              onClick={(e) => { e.stopPropagation(); onUnmortgageProperty(tile.id); }}
+                              onClick={(e: React.MouseEvent) => { e.stopPropagation(); onUnmortgageProperty(tile.id); }}
                               className="flex-1 flex items-center justify-center gap-0.5 py-1 rounded-lg text-[8px] sm:text-[9px] font-bold bg-emerald-700/40 hover:bg-emerald-700/70 text-emerald-300 border border-emerald-600/40 transition active:scale-95"
                               title={`Unmortgage for $${unmortgageCost}`}
                             >
@@ -374,7 +374,7 @@ export const GamePage: React.FC<GamePageProps> = ({
                           )}
                           {!canUpgrade && !canMortgage && !canUnmortgage && (
                             <button
-                              onClick={(e) => { e.stopPropagation(); handleTileClick(tile); }}
+                              onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleTileClick(tile); }}
                               className="flex-1 flex items-center justify-center py-1 rounded-lg text-[8px] font-medium bg-slate-900/60 text-slate-500 border border-slate-800 transition"
                             >
                               View Deed
@@ -405,15 +405,15 @@ export const GamePage: React.FC<GamePageProps> = ({
         owner={inspectedTileOwner}
         currentPlayer={currentPlayer}
         allTiles={state.boardTiles}
-        onUpgrade={(tileId) => {
+        onUpgrade={(tileId: string) => {
           onUpgradeProperty(tileId);
           setInspectedTile(null);
         }}
-        onMortgage={(tileId) => {
+        onMortgage={(tileId: string) => {
           onMortgageProperty(tileId);
           setInspectedTile(null);
         }}
-        onUnmortgage={(tileId) => {
+        onUnmortgage={(tileId: string) => {
           onUnmortgageProperty(tileId);
           setInspectedTile(null);
         }}

@@ -79,13 +79,13 @@ export const RichupPawn: React.FC<RichupPawnProps> = ({
   size = 'md',
   className = ''
 }) => {
-  const sizeMap = {
+  const sizeMap: Record<'sm' | 'md' | 'lg', { diameter: number; eyeW: number; eyeH: number; pupil: number; mouthW: number }> = {
     sm: { diameter: 14, eyeW: 2.5, eyeH: 3.5, pupil: 1.5, mouthW: 3 },
     md: { diameter: 22, eyeW: 4, eyeH: 5.5, pupil: 2.2, mouthW: 5 },
     lg: { diameter: 34, eyeW: 6, eyeH: 8, pupil: 3.5, mouthW: 8 }
   };
 
-  const s = sizeMap[size];
+  const s = sizeMap[size || 'md'];
   const d = s.diameter;
 
   return (

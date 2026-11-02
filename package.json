@@ -1,12 +1,14 @@
 {
-  "name": "custom-board-game-monorepo",
+  "name": "polyrich-board-game",
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "install:all": "npm install --prefix server && npm install --prefix client",
-    "build:client": "npm run build --prefix client",
-    "build:server": "npm run build --prefix server",
-    "build": "npm run build:client && npm run build:server",
-    "start": "npm start --prefix server"
+    "postinstall": "npm --prefix client install && npm --prefix server install",
+    "install:client": "npm --prefix client install",
+    "install:server": "npm --prefix server install",
+    "build:client": "npm --prefix client run build",
+    "build:server": "npm --prefix server run build",
+    "build": "npm --prefix client install && npm --prefix client run build && npm --prefix server install && npm --prefix server run build",
+    "start": "npm --prefix server start"
   }
 }
