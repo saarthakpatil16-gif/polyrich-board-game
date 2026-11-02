@@ -94,72 +94,77 @@ export const TileView: React.FC<TileViewProps> = ({
         tile.isMortgaged   ? 'opacity-50' : '',
       ].join(' ')}
     >
-      {/* ── Zone 1: Color band (property only, fixed 4px) ── */}
+      {/* ── Zone 1: Color band (property only, compact 2px) ── */}
       {hasColorBand && (
         <div
           className="w-full shrink-0"
-          style={{ backgroundColor: tile.colorGroup!, height: 3 }}
+          style={{ backgroundColor: tile.colorGroup!, height: 2.5 }}
         />
       )}
 
-      {/* ── Zone 2: Icon / Image — flex-1, fills all remaining minus name+info ── */}
-      <div className="relative flex-1 w-full overflow-hidden flex items-center justify-center min-h-0 p-0.5">
+      {/* ── Zone 2: Icon / Image — expanded to maximize visibility ── */}
+      <div className="relative flex-1 w-full overflow-hidden flex items-center justify-center min-h-0 p-0">
         {tile.imageUrl ? (
           <img
             src={tile.imageUrl}
             alt={tile.name}
-            className={`w-full h-full object-${tile.imageFit || 'cover'} rounded-[2px]`}
-            loading="lazy"
+            className={`w-full h-full object-${tile.imageFit || 'cover'}`}
+            style={{ imageRendering: 'auto' }}
+            loading="eager"
           />
         ) : (
-          /* Icon enlarged to 88% so city / special icons are prominent */
-          <div className="w-[88%] h-[88%] flex items-center justify-center">{iconNode}</div>
+          /* Icon enlarged to fill available area with drop shadow */
+          <div className="w-full h-full flex items-center justify-center p-0.5">
+            <div className="w-full h-full flex items-center justify-center scale-110 drop-shadow-sm">
+              {iconNode}
+            </div>
+          </div>
         )}
       </div>
 
-      {/* ── Zone 3: Name (fixed height, single line, small thin font) ── */}
+      {/* ── Zone 3: Name (compact height, clean thin font) ── */}
       <div
         className="w-full shrink-0 flex items-center justify-center px-0.5"
-        style={{ height: 11 }}
+        style={{ height: 8 }}
       >
         <span
           className={[
-            'w-full text-center truncate leading-none',
+            'w-full text-center truncate leading-none font-medium',
             isCorner
-              ? 'text-amber-300 font-medium'
-              : 'text-slate-200 font-normal',
+              ? 'text-amber-300'
+              : 'text-slate-200',
           ].join(' ')}
-          style={{ fontSize: isCorner ? 6 : 5 }}
+          style={{ fontSize: isCorner ? 5.2 : 4.4 }}
           title={tile.name}
         >
           {tile.name}
         </span>
       </div>
 
-      {/* ── Zone 4: Info bar (price / owner dot / houses) — fixed 10px ── */}
+      {/* ── Zone 4: Info bar (price / owner dot / houses) — compact 8px ── */}
       <div
         className="w-full shrink-0 flex flex-col items-center justify-center px-0.5 gap-px"
-        style={{ height: 10 }}
+        style={{ height: 8 }}
       >
         {/* Price */}
         {tile.type === 'PROPERTY' && !tile.isMortgaged && (
-          <span style={{ fontSize: 5, color: '#6ee7b7', lineHeight: 1, fontWeight: 600 }}>
+          <span style={{ fontSize: 4.5, color: '#6ee7b7', lineHeight: 1, fontWeight: 700 }}>
             ${tile.price}
           </span>
         )}
         {tile.type === 'START' && (
-          <span style={{ fontSize: 5, color: '#6ee7b7', lineHeight: 1, fontWeight: 600 }}>+$200</span>
+          <span style={{ fontSize: 4.2, color: '#6ee7b7', lineHeight: 1, fontWeight: 600 }}>+$200</span>
         )}
         {tile.type === 'TAX' && (
-          <span style={{ fontSize: 5, color: '#f87171', lineHeight: 1, fontWeight: 600 }}>
+          <span style={{ fontSize: 4.2, color: '#f87171', lineHeight: 1, fontWeight: 600 }}>
             -{tile.price ?? 100}
           </span>
         )}
 
         {/* Mortgaged */}
         {tile.isMortgaged && (
-          <div className="flex items-center gap-px" style={{ color: '#f87171', fontSize: 4.5 }}>
-            <Lock style={{ width: 4.5, height: 4.5 }} />MTG
+          <div className="flex items-center gap-px" style={{ color: '#f87171', fontSize: 3.8 }}>
+            <Lock style={{ width: 4, height: 4 }} />MTG
           </div>
         )}
 

@@ -16,13 +16,12 @@ export const PlayerToken: React.FC<PlayerTokenProps> = ({
   isCurrentTurn,
   isHopping
 }) => {
-  // Compute non-overlapping offset within tile (up to 6 distinct slots)
-  // Grid of 3 columns x 2 rows inside token container
+  // Compute non-overlapping offset within tile (compact circle tokens)
   const col = slotIndex % 3;
   const row = Math.floor(slotIndex / 3);
 
-  const offsetX = (col - 1) * 7; // -7px, 0px, +7px
-  const offsetY = (row - 0.5) * 6; // -3px, +3px
+  const offsetX = (col - 1) * 6; // -6px, 0px, +6px
+  const offsetY = (row - 0.5) * 5; // -2.5px, +2.5px
 
   return (
     <div
@@ -33,8 +32,8 @@ export const PlayerToken: React.FC<PlayerTokenProps> = ({
         transform: `translate(${offsetX}px, ${offsetY}px)`,
         left: '50%',
         top: '50%',
-        marginLeft: '-9px',
-        marginTop: '-14px',
+        marginLeft: '-7px',
+        marginTop: '-7px',
         ['--pawn-x' as any]: `${offsetX}px`,
         ['--pawn-y' as any]: `${offsetY}px`,
       }}
@@ -42,8 +41,8 @@ export const PlayerToken: React.FC<PlayerTokenProps> = ({
     >
       <div 
         className={`relative transition-transform ${
-          isCurrentTurn && !isHopping ? 'scale-110 drop-shadow-[0_0_8px_rgba(250,204,21,0.8)]' : ''
-        } ${isHopping ? 'scale-125 drop-shadow-[0_0_12px_rgba(255,255,255,0.9)] animate-bounce' : ''}`}
+          isCurrentTurn && !isHopping ? 'scale-125 drop-shadow-[0_0_8px_rgba(250,204,21,0.9)]' : ''
+        } ${isHopping ? 'scale-135 drop-shadow-[0_0_12px_rgba(255,255,255,0.95)] animate-bounce' : ''}`}
       >
         <RichupPawn 
           color={player.color} 

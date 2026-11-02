@@ -62,10 +62,8 @@ export function renderPawnIcon(avatar?: string, className = "w-3 h-3", defaultIn
 }
 
 /**
- * Richup.io-styled 3D Pawn Marker Component
- * Replicates the modern pawn marker:
- * A tapered 3D standing token with a weighted base pedestal, head cap,
- * lighting reflections, and chosen color gradient + optional custom emblem.
+ * Richup.io-styled Character Token (Circle with expressive cartoon eyes)
+ * Fits cleanly onto board tiles and scales nicely across all screens.
  */
 interface RichupPawnProps {
   color: string;
@@ -78,119 +76,70 @@ interface RichupPawnProps {
 
 export const RichupPawn: React.FC<RichupPawnProps> = ({
   color,
-  avatar,
   size = 'md',
-  defaultIndex = 0,
-  showIcon = true,
   className = ''
 }) => {
   const sizeMap = {
-    sm: { w: '18px', h: '26px', iconSize: 'w-2 h-2', head: 'w-2.5 h-2.5' },
-    md: { w: '26px', h: '36px', iconSize: 'w-3 h-3', head: 'w-3.5 h-3.5' },
-    lg: { w: '38px', h: '50px', iconSize: 'w-4 h-4', head: 'w-5 h-5' }
+    sm: { diameter: 14, eyeW: 2.5, eyeH: 3.5, pupil: 1.5, mouthW: 3 },
+    md: { diameter: 22, eyeW: 4, eyeH: 5.5, pupil: 2.2, mouthW: 5 },
+    lg: { diameter: 34, eyeW: 6, eyeH: 8, pupil: 3.5, mouthW: 8 }
   };
 
-  const currentSize = sizeMap[size];
+  const s = sizeMap[size];
+  const d = s.diameter;
 
   return (
     <div 
-      className={`relative inline-flex flex-col items-center justify-end select-none pointer-events-none drop-shadow-md ${className}`}
-      style={{ width: currentSize.w, height: currentSize.h }}
+      className={`relative inline-flex items-center justify-center select-none pointer-events-none drop-shadow-md ${className}`}
+      style={{ width: `${d}px`, height: `${d}px` }}
     >
-      {/* 3D Pawn Base Drop Shadow Oval */}
-      <div 
-        className="absolute bottom-0 w-4/5 h-[6px] rounded-[50%] bg-black/45 blur-[1.5px] -z-10 translate-y-[2px]"
-      />
-
-      {/* Pawn SVG 3D Silhouette */}
       <svg
-        viewBox="0 0 40 54"
+        viewBox="0 0 32 32"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="w-full h-full drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]"
+        className="w-full h-full"
       >
         <defs>
-          {/* Main 3D lighting gradient */}
-          <linearGradient id={`pawnGrad-${color.replace('#', '')}`} x1="0" y1="0" x2="1" y2="0">
+          <radialGradient id={`ballGrad-${color.replace('#', '')}`} cx="35%" cy="30%" r="70%">
             <stop offset="0%" stopColor="#ffffff" stopOpacity="0.45" />
-            <stop offset="25%" stopColor={color} />
-            <stop offset="70%" stopColor={color} />
-            <stop offset="100%" stopColor="#000000" stopOpacity="0.5" />
-          </linearGradient>
-
-          {/* Head sphere gradient */}
-          <radialGradient id={`sphereGrad-${color.replace('#', '')}`} cx="35%" cy="30%" r="65%">
-            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.8" />
-            <stop offset="45%" stopColor={color} />
-            <stop offset="100%" stopColor="#0a0a0a" stopOpacity="0.65" />
+            <stop offset="35%" stopColor={color} />
+            <stop offset="100%" stopColor="#0a0a14" stopOpacity="0.65" />
           </radialGradient>
         </defs>
 
-        {/* 1. Base pedestal rim */}
-        <ellipse 
-          cx="20" 
-          cy="49" 
-          rx="18" 
-          ry="4" 
-          fill={`url(#pawnGrad-${color.replace('#', '')})`} 
-          stroke="rgba(255,255,255,0.7)" 
-          strokeWidth="1.2"
-        />
+        {/* Outer drop shadow */}
+        <circle cx="16" cy="17" r="14" fill="#000000" fillOpacity="0.35" />
 
-        {/* 2. Stepped pedestal collar */}
-        <path 
-          d="M 5 48 C 5 44, 35 44, 35 48 L 32 43 C 32 40, 8 40, 8 43 Z" 
-          fill={color} 
-          filter="brightness(0.9)"
-        />
-
-        {/* 3. Tapered body waist */}
-        <path 
-          d="M 8 43 C 12 36, 14 26, 15 20 C 15 19, 25 19, 25 20 C 26 26, 28 36, 32 43 Z" 
-          fill={`url(#pawnGrad-${color.replace('#', '')})`}
-          stroke="rgba(255,255,255,0.3)"
-          strokeWidth="0.8"
-        />
-
-        {/* 4. Neck collar ring */}
-        <ellipse 
-          cx="20" 
-          cy="19" 
-          rx="6.5" 
-          ry="2" 
-          fill="#ffffff" 
-          fillOpacity="0.75" 
-        />
-
-        {/* 5. Head ball sphere */}
+        {/* 3D Colored Sphere Body */}
         <circle 
-          cx="20" 
-          cy="11" 
-          r="9.5" 
-          fill={`url(#sphereGrad-${color.replace('#', '')})`} 
-          stroke="rgba(255,255,255,0.8)" 
-          strokeWidth="1"
+          cx="16" 
+          cy="16" 
+          r="14" 
+          fill={`url(#ballGrad-${color.replace('#', '')})`} 
+          stroke="rgba(255,255,255,0.85)" 
+          strokeWidth="1.5" 
         />
 
-        {/* 6. Gloss highlight sheen */}
-        <ellipse 
-          cx="17" 
-          cy="8" 
-          rx="3.5" 
-          ry="2.5" 
-          fill="#ffffff" 
-          fillOpacity="0.7" 
-        />
+        {/* Gloss highlight sheen on top-left */}
+        <ellipse cx="11" cy="9" rx="4" ry="2" fill="#ffffff" fillOpacity="0.6" transform="rotate(-20 11 9)" />
+
+        {/* Left Eye (White sclera) */}
+        <ellipse cx="11.5" cy="15" rx="3.2" ry="4.2" fill="#ffffff" stroke="#1e293b" strokeWidth="0.8" />
+        {/* Left Pupil (Black) */}
+        <circle cx="12.2" cy="15.2" r="2" fill="#0f172a" />
+        {/* Left Eye Glint (White reflection) */}
+        <circle cx="11.2" cy="14" r="0.9" fill="#ffffff" />
+
+        {/* Right Eye (White sclera) */}
+        <ellipse cx="20.5" cy="15" rx="3.2" ry="4.2" fill="#ffffff" stroke="#1e293b" strokeWidth="0.8" />
+        {/* Right Pupil (Black) */}
+        <circle cx="21.2" cy="15.2" r="2" fill="#0f172a" />
+        {/* Right Eye Glint (White reflection) */}
+        <circle cx="20.2" cy="14" r="0.9" fill="#ffffff" />
+
+        {/* Little cute smile mouth */}
+        <path d="M 14 21.5 Q 16 23.5 18 21.5" stroke="#1e293b" strokeWidth="0.9" strokeLinecap="round" fill="none" />
       </svg>
-
-      {/* Embedded Emblem / Icon on Pawn Chest */}
-      {showIcon && (
-        <div 
-          className="absolute top-[52%] left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]"
-        >
-          {renderPawnIcon(avatar, `${currentSize.iconSize} text-white drop-shadow`, defaultIndex)}
-        </div>
-      )}
     </div>
   );
 };

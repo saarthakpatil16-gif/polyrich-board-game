@@ -64,66 +64,77 @@ export const TradeModal: React.FC<TradeModalProps> = ({
     onClose();
   };
 
-  // ================= INCOMING TRADE PROPOSAL POPUP =================
+  // ================= INCOMING TRADE PROPOSAL FLOATING BANNER =================
+  // Floats at top right / center without blocking board or turns
   if (isIncoming && activeTrade) {
     const sender = allPlayers.find(p => p.id === activeTrade.fromPlayerId);
     const offeredTiles = boardTiles.filter(t => activeTrade.offeredTileIds.includes(t.id));
     const requestedTiles = boardTiles.filter(t => activeTrade.requestedTileIds.includes(t.id));
 
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in zoom-in-95">
-        <div className="w-full max-w-md bg-[#13172e] border-2 border-indigo-500 rounded-3xl shadow-2xl p-6 text-center flex flex-col gap-4">
-          <div className="p-3 rounded-full bg-indigo-600/30 text-indigo-400 mx-auto border border-indigo-500/40">
-            <ArrowLeftRight className="w-8 h-8" />
+      <div className="fixed top-12 sm:top-14 right-2 sm:right-6 z-50 animate-in slide-in-from-top-4 pointer-events-auto max-w-sm w-full">
+        <div className="bg-[#13172e]/95 backdrop-blur-md border-2 border-indigo-500 rounded-2xl shadow-2xl p-4 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-full bg-indigo-600/30 text-indigo-400 border border-indigo-500/40">
+                <ArrowLeftRight className="w-4 h-4" />
+              </div>
+              <div className="text-left">
+                <span className="text-[9px] font-bold text-amber-400 uppercase tracking-widest block leading-tight">
+                  Trade Proposal
+                </span>
+                <h4 className="text-xs sm:text-sm font-black text-white">
+                  {sender?.name} wants to trade
+                </h4>
+              </div>
+            </div>
+            <button 
+              onClick={() => onRespondTrade(false)}
+              className="text-slate-400 hover:text-white p-1"
+              title="Decline trade"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
 
-          <div>
-            <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">
-              Trade Proposal Received
-            </span>
-            <h3 className="text-xl font-black text-white">
-              {sender?.name} wants to trade!
-            </h3>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 text-left text-xs bg-[#0b0e1f] p-3 rounded-2xl border border-slate-800">
+          <div className="grid grid-cols-2 gap-2 text-left text-[10px] bg-[#0b0e1f] p-2.5 rounded-xl border border-slate-800">
             <div>
-              <span className="font-bold text-emerald-400 block mb-1">THEY OFFER:</span>
-              <p className="font-bold text-white mb-1">${activeTrade.offeredMoney} Cash</p>
+              <span className="font-bold text-emerald-400 block mb-0.5">THEY OFFER:</span>
+              <p className="font-bold text-white">${activeTrade.offeredMoney} Cash</p>
               {offeredTiles.length > 0 ? (
-                <ul className="text-slate-300 space-y-0.5">
-                  {offeredTiles.map(t => <li key={t.id}>• {t.name}</li>)}
+                <ul className="text-slate-300 space-y-0.5 truncate">
+                  {offeredTiles.map(t => <li key={t.id} className="truncate">• {t.name}</li>)}
                 </ul>
               ) : (
-                <span className="text-slate-500 italic">No properties</span>
+                <span className="text-slate-500 italic">No props</span>
               )}
             </div>
 
             <div>
-              <span className="font-bold text-rose-400 block mb-1">THEY REQUEST:</span>
-              <p className="font-bold text-white mb-1">${activeTrade.requestedMoney} Cash</p>
+              <span className="font-bold text-rose-400 block mb-0.5">THEY WANT:</span>
+              <p className="font-bold text-white">${activeTrade.requestedMoney} Cash</p>
               {requestedTiles.length > 0 ? (
-                <ul className="text-slate-300 space-y-0.5">
-                  {requestedTiles.map(t => <li key={t.id}>• {t.name}</li>)}
+                <ul className="text-slate-300 space-y-0.5 truncate">
+                  {requestedTiles.map(t => <li key={t.id} className="truncate">• {t.name}</li>)}
                 </ul>
               ) : (
-                <span className="text-slate-500 italic">No properties</span>
+                <span className="text-slate-500 italic">No props</span>
               )}
             </div>
           </div>
 
-          <div className="flex gap-3 pt-2">
+          <div className="flex gap-2">
             <button
               onClick={() => onRespondTrade(true)}
-              className="flex-1 py-3 rounded-2xl font-black text-xs sm:text-sm bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 text-white shadow-lg transition active:scale-95 flex items-center justify-center gap-1.5"
+              className="flex-1 py-1.5 rounded-xl font-bold text-xs bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 text-white shadow-md transition active:scale-95 flex items-center justify-center gap-1"
             >
-              <Check className="w-4 h-4" /> Accept Trade
+              <Check className="w-3.5 h-3.5" /> Accept
             </button>
             <button
               onClick={() => onRespondTrade(false)}
-              className="flex-1 py-3 rounded-2xl font-bold text-xs sm:text-sm bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800/40 transition active:scale-95 flex items-center justify-center gap-1.5"
+              className="flex-1 py-1.5 rounded-xl font-medium text-xs bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-800/40 transition active:scale-95 flex items-center justify-center gap-1"
             >
-              <X className="w-4 h-4" /> Decline
+              <X className="w-3.5 h-3.5" /> Decline
             </button>
           </div>
         </div>
@@ -131,25 +142,28 @@ export const TradeModal: React.FC<TradeModalProps> = ({
     );
   }
 
-  // ================= OUTGOING TRADE WAITING SCREEN =================
+  // ================= OUTGOING TRADE FLOATING STATUS =================
+  // Non-blocking toast at top right
   if (isOutgoing && activeTrade) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in zoom-in-95">
-        <div className="w-full max-w-sm bg-[#13172e] border border-slate-700 rounded-3xl shadow-2xl p-6 text-center flex flex-col gap-4">
-          <div className="animate-spin text-indigo-400 mx-auto">
-            <ArrowLeftRight className="w-8 h-8" />
+      <div className="fixed top-12 sm:top-14 right-2 sm:right-6 z-50 animate-in slide-in-from-top-4 pointer-events-auto">
+        <div className="bg-[#13172e]/95 backdrop-blur-md border border-indigo-500/50 rounded-2xl shadow-xl px-4 py-2.5 flex items-center gap-3">
+          <div className="animate-spin text-indigo-400">
+            <ArrowLeftRight className="w-4 h-4" />
           </div>
-          <h3 className="text-lg font-black text-white">
-            Waiting for {activeTrade.toPlayerName}...
-          </h3>
-          <p className="text-xs text-slate-400">
-            Your trade proposal has been delivered. Waiting for their response.
-          </p>
+          <div className="text-left">
+            <p className="text-[10px] font-bold text-indigo-300">
+              Trade Sent to {activeTrade.toPlayerName}
+            </p>
+            <p className="text-[9px] text-slate-400">
+              Waiting for response (gameplay continues)...
+            </p>
+          </div>
           <button
             onClick={onCancelTrade}
-            className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300"
+            className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[10px] font-semibold text-slate-300 ml-2"
           >
-            Cancel Trade
+            Cancel
           </button>
         </div>
       </div>

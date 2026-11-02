@@ -2,12 +2,22 @@ import { io, Socket } from 'socket.io-client';
 import { PublicGameState, PlayerDTO } from '../types';
 
 let socket: Socket | null = null;
+let activeJoinData: { roomCode: string; sessionId: string; playerName?: string; avatar?: string; color?: string } | null = null;
 
 export function getSocket(): Socket {
   if (!socket) {
     socket = io({
       autoConnect: true,
-      transports: ['websocket', 'polling']
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 15,
+      reconnectionDelay: 1000
+    });
+
+    // Automatically re-join the room if the socket reconnects
+    socket.on('connect', () => {
+      if (activeJoinData && socket) {
+        socket.emit('join_room', activeJoinData);
+      }
     });
   }
   return socket;
@@ -42,6 +52,8 @@ export function joinRoomSocket(
 ) {
   const s = getSocket();
 
+  activeJoinData = { roomCode, sessionId, playerName, avatar, color };
+
   s.off('room_joined');
   s.off('game_state_updated');
   s.off('game_started');
@@ -67,5 +79,17 @@ export function joinRoomSocket(
     s.on('error_message', (d: { message: string }) => callbacks.onError!(d.message));
   }
 
-  s.emit('join_room', { roomCode, sessionId, playerName, avatar, color });
+  s.emit('join_room', activeJoinData);
+}
+
+export function leaveRoomSocket() {
+  activeJoinData = null;
+  if (socket) {
+    socket.off('room_joined');
+    socket.off('game_state_updated');
+    socket.off('game_started');
+    socket.off('dice_rolled');
+    socket.off('turn_ended');
+    socket.off('error_message');
+  }
 }

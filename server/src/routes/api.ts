@@ -178,7 +178,9 @@ router.post('/rooms/:code/join', (req: Request, res: Response) => {
     );
 
     // Broadcast room update to all existing clients in the room via Socket.IO
-    io.to(code.toUpperCase()).emit('game_state_updated', roomManager.getPublicState(room));
+    if (io) {
+      io.to(code.toUpperCase()).emit('game_state_updated', roomManager.getPublicState(room));
+    }
 
     return res.json({
       success: true,
@@ -191,6 +193,97 @@ router.post('/rooms/:code/join', (req: Request, res: Response) => {
     return res.status(400).json({ error: err.message });
   }
 });
+
+/**
+ * Start game via REST (Host Only)
+ */
+router.post('/rooms/:code/start', (req: Request, res: Response) => {
+  try {
+    const code = req.params.code as string;
+    const hostSessionId = (req.headers['x-host-session'] as string) || req.body.hostSessionId;
+    const room = roomManager.startGame(code, hostSessionId);
+    
+    if (io) {
+      io.to(code.toUpperCase()).emit('game_started', roomManager.getPublicState(room));
+      io.to(code.toUpperCase()).emit('game_state_updated', roomManager.getPublicState(room));
+    }
+
+    return res.json({
+      success: true,
+      state: roomManager.getPublicState(room)
+    });
+  } catch (err: any) {
+    return res.status(400).json({ error: err.message });
+  }
+});
+
+/**
+ * Add bot via REST (Host Only)
+ */
+router.post('/rooms/:code/bot', (req: Request, res: Response) => {
+  try {
+    const code = req.params.code as string;
+    const hostSessionId = (req.headers['x-host-session'] as string) || req.body.hostSessionId;
+    const room = roomManager.addBot(code, hostSessionId);
+    
+    if (io) {
+      io.to(code.toUpperCase()).emit('game_state_updated', roomManager.getPublicState(room));
+    }
+
+    return res.json({
+      success: true,
+      state: roomManager.getPublicState(room)
+    });
+  } catch (err: any) {
+    return res.status(400).json({ error: err.message });
+  }
+});
+
+/**
+ * Remove bot via REST (Host Only)
+ */
+router.delete('/rooms/:code/bot/:botId', (req: Request, res: Response) => {
+  try {
+    const code = req.params.code as string;
+    const botId = req.params.botId as string;
+    const hostSessionId = (req.headers['x-host-session'] as string) || (req.query.hostSessionId as string) || req.body.hostSessionId;
+    const room = roomManager.removeBot(code, hostSessionId, botId === 'any' ? undefined : botId);
+    
+    if (io) {
+      io.to(code.toUpperCase()).emit('game_state_updated', roomManager.getPublicState(room));
+    }
+
+    return res.json({
+      success: true,
+      state: roomManager.getPublicState(room)
+    });
+  } catch (err: any) {
+    return res.status(400).json({ error: err.message });
+  }
+});
+
+/**
+ * Toggle player ready via REST
+ */
+router.post('/rooms/:code/ready', (req: Request, res: Response) => {
+  try {
+    const code = req.params.code as string;
+    const { sessionId } = req.body;
+    const room = roomManager.toggleReady(code, sessionId);
+
+    if (io) {
+      io.to(code.toUpperCase()).emit('game_state_updated', roomManager.getPublicState(room));
+    }
+
+    return res.json({
+      success: true,
+      state: roomManager.getPublicState(room)
+    });
+  } catch (err: any) {
+    return res.status(400).json({ error: err.message });
+  }
+});
+
 router.patch('/rooms/:code/player/:sessionId/avatar', async (req: Request, res: Response) => {
   try {
     const code = req.params.code as string;
@@ -266,6 +359,9 @@ router.put('/rooms/:code/editor/tiles', (req: Request, res: Response) => {
     }
 
     const room = roomManager.updateBoardTiles(code, hostSessionId, tiles);
+    if (io) {
+      io.to(code.toUpperCase()).emit('game_state_updated', roomManager.getPublicState(room));
+    }
     return res.json({
       success: true,
       message: 'Board tiles successfully updated and saved',
@@ -397,6 +493,9 @@ router.put('/rooms/:code/editor/rewards', (req: Request, res: Response) => {
     const hostSessionId = (req.headers['x-host-session'] as string) || req.body.hostSessionId;
     const { rewards } = req.body;
     const room = roomManager.updateRewards(code, hostSessionId, rewards);
+    if (io) {
+      io.to(code.toUpperCase()).emit('game_state_updated', roomManager.getPublicState(room));
+    }
     return res.json({ success: true, rewards: room.rewards });
   } catch (err: any) {
     return res.status(403).json({ error: err.message });
@@ -412,6 +511,9 @@ router.put('/rooms/:code/editor/punishments', (req: Request, res: Response) => {
     const hostSessionId = (req.headers['x-host-session'] as string) || req.body.hostSessionId;
     const { punishments } = req.body;
     const room = roomManager.updatePunishments(code, hostSessionId, punishments);
+    if (io) {
+      io.to(code.toUpperCase()).emit('game_state_updated', roomManager.getPublicState(room));
+    }
     return res.json({ success: true, punishments: room.punishments });
   } catch (err: any) {
     return res.status(403).json({ error: err.message });
@@ -427,6 +529,9 @@ router.put('/rooms/:code/editor/rules', (req: Request, res: Response) => {
     const hostSessionId = (req.headers['x-host-session'] as string) || req.body.hostSessionId;
     const { rules } = req.body;
     const room = roomManager.updateGameRules(code, hostSessionId, rules);
+    if (io) {
+      io.to(code.toUpperCase()).emit('game_state_updated', roomManager.getPublicState(room));
+    }
     return res.json({ success: true, rules: room.rules });
   } catch (err: any) {
     return res.status(403).json({ error: err.message });

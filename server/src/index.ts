@@ -36,10 +36,14 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'healthy', timestamp: new Date().toISOString() });
 });
 
-// In the single-container Hostless deployment, serve the built SPA from the
-// same origin as the API and Socket.IO endpoint.
-const clientDistPath = path.resolve(process.cwd(), 'client-dist');
-if (process.env.NODE_ENV === 'production' && fs.existsSync(clientDistPath)) {
+// Serve built client frontend directly in production or full-stack deployments
+const clientDistCandidates = [
+  path.resolve(process.cwd(), 'client-dist'),
+  path.resolve(process.cwd(), '../client/dist'),
+  path.resolve(process.cwd(), 'dist/public')
+];
+const clientDistPath = clientDistCandidates.find(p => fs.existsSync(p));
+if (clientDistPath) {
   app.use(express.static(clientDistPath));
   app.get('*', (_req, res) => res.sendFile(path.join(clientDistPath, 'index.html')));
 }

@@ -3,17 +3,18 @@ import { PublicGameState, PlayerDTO } from '../types';
 import { soundFX } from '../utils/audio';
 import { PawnSelectorModal } from '../components/modals/PawnSelectorModal';
 import { renderPawnIcon, RichupPawn } from '../utils/pawnShapes';
-import { Crown, Users, Clock, Sparkles, Palette, CheckCircle2, Copy, Check, Sliders, Play, Bot, Plus, Trash2 } from 'lucide-react';
+import { Crown, Users, Clock, Sparkles, Palette, CheckCircle2, Copy, Check, Sliders, Play, Bot, Plus, Minus, Trash2, ArrowLeft, AlertCircle } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
-
 import { api } from '../services/api';
 
 interface LobbyPageProps {
   state: PublicGameState;
   currentPlayer: PlayerDTO | null;
+  errorMessage?: string | null;
   onStartGame: () => void;
   onToggleReady: () => void;
   onOpenEditor: () => void;
+  onLeaveRoom: () => void;
   onAddBot?: () => void;
   onRemoveBot?: (botId?: string) => void;
 }
@@ -21,9 +22,11 @@ interface LobbyPageProps {
 export const LobbyPage: React.FC<LobbyPageProps> = ({
   state,
   currentPlayer,
+  errorMessage,
   onStartGame,
   onToggleReady,
   onOpenEditor,
+  onLeaveRoom,
   onAddBot,
   onRemoveBot,
 }) => {
@@ -31,6 +34,7 @@ export const LobbyPage: React.FC<LobbyPageProps> = ({
   const [pawnModalOpen, setPawnModalOpen] = useState(false);
   const isHost = currentPlayer?.isHost || false;
   const readyCount = state.players.filter(p => p.isReady).length;
+  const botCount = state.players.filter(p => p.isBot).length;
 
   const { toast, ToastContainer } = useToast();
 
@@ -62,14 +66,27 @@ export const LobbyPage: React.FC<LobbyPageProps> = ({
         <div className="absolute -top-24 -right-24 w-60 h-60 rounded-full bg-indigo-600/20 blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -left-24 w-60 h-60 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
 
-        {/* Header */}
+        {/* Top Bar with Back Button & Room Details */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-2xl font-black text-white tracking-wider">POLYRICH</span>
-              <span className="text-xs bg-indigo-600/30 text-indigo-400 font-bold px-2 py-0.5 rounded border border-indigo-500/40">MULTIPLAYER</span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                soundFX.playClick();
+                onLeaveRoom();
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/80 transition active:scale-95 text-xs font-bold shrink-0"
+              title="Leave lobby and return to home"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Leave</span>
+            </button>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xl sm:text-2xl font-black text-white tracking-wider">POLYRICH</span>
+                <span className="text-[10px] bg-indigo-600/30 text-indigo-400 font-bold px-2 py-0.5 rounded border border-indigo-500/40">LOBBY</span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">Expanded 48-Tile Board Game • Up to 6 Players</p>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">Expanded 48-Tile Board Game • Up to 6 Players</p>
           </div>
 
           {/* Room Code & Invite Button */}
@@ -88,26 +105,69 @@ export const LobbyPage: React.FC<LobbyPageProps> = ({
           </div>
         </div>
 
-        {/* Players Lobby Grid (Up to 6 Players) */}
-        <div className="flex flex-col gap-2">
+        {/* Error notification banner if any */}
+        {errorMessage && (
+          <div className="flex items-center gap-2 p-3 rounded-2xl bg-rose-950/60 border border-rose-800/60 text-rose-300 text-xs font-semibold">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
+
+        {/* Players Lobby Section */}
+        <div className="flex flex-col gap-2.5">
           <div className="flex items-center justify-between text-xs font-bold text-slate-300 px-1">
             <span className="flex items-center gap-1.5">
               <Users className="w-4 h-4 text-indigo-400" />
               Connected Players ({state.players.length}/6)
             </span>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <span className="text-slate-400">{readyCount} of {state.players.length} Ready</span>
-              {isHost && state.players.length < 6 && (
-                <button
-                  onClick={onAddBot}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition active:scale-95"
-                  title="Add an automated Bot player"
-                >
-                  <Bot className="w-3.5 h-3.5" /> + Bot
-                </button>
+              
+              {/* Bot controls for Host */}
+              {isHost && (
+                <div className="flex items-center gap-1 bg-[#090b16] p-1 rounded-xl border border-slate-800 ml-1">
+                  {state.players.length < 6 && onAddBot && (
+                    <button
+                      onClick={onAddBot}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-600/30 hover:bg-indigo-600/60 text-indigo-300 border border-indigo-500/40 transition active:scale-95"
+                      title="Add an automated Bot player"
+                    >
+                      <Bot className="w-3.5 h-3.5" />
+                      <span>+ Bot</span>
+                    </button>
+                  )}
+                  {botCount > 0 && onRemoveBot && (
+                    <button
+                      onClick={() => onRemoveBot()}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-rose-950/50 hover:bg-rose-900/60 text-rose-300 border border-rose-800/40 transition active:scale-95"
+                      title="Remove a Bot player"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                      <span>Bot</span>
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </div>
+
+          {/* Quick Bot Suggestion for Solo Host */}
+          {isHost && state.players.length === 1 && (
+            <div className="bg-indigo-950/30 border border-indigo-800/40 rounded-2xl p-3 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs text-indigo-200">
+                <Bot className="w-4 h-4 text-indigo-400 shrink-0" />
+                <span>Playing alone? You can start solo or add automated bots to practice against!</span>
+              </div>
+              {onAddBot && (
+                <button
+                  onClick={onAddBot}
+                  className="px-3 py-1 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shrink-0 ml-2 transition active:scale-95 shadow"
+                >
+                  Add Bot
+                </button>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             {state.players.map((p) => {
@@ -158,7 +218,7 @@ export const LobbyPage: React.FC<LobbyPageProps> = ({
                     {isHost && p.isBot && onRemoveBot && (
                       <button
                         onClick={() => onRemoveBot(p.id)}
-                        className="p-1 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-950/40 transition"
+                        className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-950/40 transition"
                         title="Remove Bot"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -250,7 +310,7 @@ export const LobbyPage: React.FC<LobbyPageProps> = ({
               className="w-full sm:flex-1 py-3 px-6 rounded-2xl font-black text-sm bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 text-white shadow-emerald-900/40 shadow-xl transition active:scale-95 flex items-center justify-center gap-2"
             >
               <Play className="w-4 h-4 fill-white" />
-              Start Game ({state.players.length} Players)
+              Start Game ({state.players.length} {state.players.length === 1 ? 'Player' : 'Players'})
             </button>
           )}
         </div>

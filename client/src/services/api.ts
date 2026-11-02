@@ -55,6 +55,68 @@ export const api = {
   },
 
   /**
+   * Start game (Host Only)
+   */
+  async startGame(code: string, hostSessionId: string): Promise<{ success: boolean; state: PublicGameState }> {
+    const res = await fetch(`${API_BASE}/rooms/${code}/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hostSessionId })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to start game');
+    }
+    return res.json();
+  },
+
+  /**
+   * Add bot to room (Host Only)
+   */
+  async addBot(code: string, hostSessionId: string): Promise<{ success: boolean; state: PublicGameState }> {
+    const res = await fetch(`${API_BASE}/rooms/${code}/bot`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hostSessionId })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to add bot');
+    }
+    return res.json();
+  },
+
+  /**
+   * Remove bot from room (Host Only)
+   */
+  async removeBot(code: string, hostSessionId: string, botId?: string): Promise<{ success: boolean; state: PublicGameState }> {
+    const res = await fetch(`${API_BASE}/rooms/${code}/bot/${botId || 'any'}?hostSessionId=${encodeURIComponent(hostSessionId)}`, {
+      method: 'DELETE'
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to remove bot');
+    }
+    return res.json();
+  },
+
+  /**
+   * Toggle player ready status
+   */
+  async toggleReady(code: string, sessionId: string): Promise<{ success: boolean; state: PublicGameState }> {
+    const res = await fetch(`${API_BASE}/rooms/${code}/ready`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to toggle ready');
+    }
+    return res.json();
+  },
+
+  /**
    * Fetch board editor data
    */
   async getEditorData(code: string, hostSessionId: string) {

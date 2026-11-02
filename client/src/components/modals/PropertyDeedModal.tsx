@@ -6,6 +6,7 @@ interface PropertyDeedModalProps {
   tile: BoardTileDTO | null;
   owner: PlayerDTO | null;
   currentPlayer: PlayerDTO | null;
+  allTiles?: BoardTileDTO[];
   onUpgrade?: (tileId: string) => void;
   onMortgage?: (tileId: string) => void;
   onUnmortgage?: (tileId: string) => void;
@@ -16,6 +17,7 @@ export const PropertyDeedModal: React.FC<PropertyDeedModalProps> = ({
   tile,
   owner,
   currentPlayer,
+  allTiles = [],
   onUpgrade,
   onMortgage,
   onUnmortgage,
@@ -24,7 +26,13 @@ export const PropertyDeedModal: React.FC<PropertyDeedModalProps> = ({
   if (!tile) return null;
 
   const isOwner = currentPlayer && owner && currentPlayer.id === owner.id;
-  const canUpgrade = isOwner && !tile.isMortgaged && (tile.upgradeLevel || 0) < 3 && (currentPlayer.money >= (tile.upgradeCost || 100));
+  
+  // Rule: Must own all color category properties to build houses/hotels
+  const groupTiles = allTiles.filter(t => t.type === 'PROPERTY' && t.colorGroup === tile.colorGroup);
+  const ownsAllInGroup = groupTiles.length > 0 && groupTiles.every(t => t.ownerId === currentPlayer?.id);
+  const anyMortgagedInGroup = groupTiles.some(t => t.isMortgaged);
+  
+  const canUpgrade = isOwner && ownsAllInGroup && !anyMortgagedInGroup && !tile.isMortgaged && (tile.upgradeLevel || 0) < 3 && (currentPlayer.money >= (tile.upgradeCost || 100));
   const canMortgage = isOwner && !tile.isMortgaged && (tile.upgradeLevel || 0) === 0;
   const unmortgageCost = Math.round(tile.price * 0.55);
   const canUnmortgage = isOwner && tile.isMortgaged && (currentPlayer.money >= unmortgageCost);
@@ -131,6 +139,13 @@ export const PropertyDeedModal: React.FC<PropertyDeedModalProps> = ({
           {/* Action Buttons for Owner */}
           {isOwner && (
             <div className="flex flex-col gap-2">
+              {/* Monopoly requirement guidance */}
+              {!ownsAllInGroup && !tile.isMortgaged && (tile.upgradeLevel || 0) < 3 && (
+                <div className="p-2 rounded-lg bg-amber-950/30 border border-amber-800/40 text-[10px] text-amber-300/80">
+                  ⚠️ Must own all {groupTiles.length} {tile.district || 'color group'} properties to develop houses or hotels.
+                </div>
+              )}
+
               {canUpgrade && onUpgrade && (
                 <button
                   onClick={() => onUpgrade(tile.id)}

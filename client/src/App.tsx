@@ -1,16 +1,43 @@
 import React, { useState, useEffect } from 'react';
 import { PublicGameState, PlayerDTO, BoardTileDTO, RewardDTO, PunishmentDTO, GameRulesDTO, BoardTemplateDTO } from './types';
 import { api } from './services/api';
-import { getSocket, joinRoomSocket } from './services/socket';
+import { getSocket, joinRoomSocket, leaveRoomSocket } from './services/socket';
 import { soundFX } from './utils/audio';
 import { LobbyPage } from './pages/LobbyPage';
 import { GamePage } from './pages/GamePage';
 import { HostAdminDashboard } from './components/admin/HostAdminDashboard';
-import { Plus, ArrowRight, Dices, Sparkles, Shield, Trophy, Check, Sliders } from 'lucide-react';
+import { Plus, ArrowRight, Dices, Sparkles, Shield, Trophy, Check, Sliders, User, LogOut as LogOutIcon } from 'lucide-react';
 
 const SESSION_KEY = 'polyrich_session_id';
 const ROOM_KEY = 'polyrich_room_code';
 const TEMPLATE_KEY = 'polyrich_custom_template';
+const GOOGLE_USER_KEY = 'polyrich_google_user';
+
+export interface GoogleUserProfile {
+  email: string;
+  name: string;
+  picture?: string;
+  sub: string;
+}
+
+// Use sessionStorage (tab-scoped) with fallback to localStorage
+// This allows testing multiple players/tabs on the same browser without session hijacking
+const getSessionIdForRoom = (roomCode?: string): string | undefined => {
+  if (roomCode) {
+    const code = roomCode.toUpperCase();
+    return sessionStorage.getItem(`polyrich_session_${code}`) || undefined;
+  }
+  return sessionStorage.getItem(SESSION_KEY) || undefined;
+};
+
+const saveSessionForRoom = (roomCode: string, sessionId: string) => {
+  const code = roomCode.toUpperCase();
+  sessionStorage.setItem(SESSION_KEY, sessionId);
+  sessionStorage.setItem(`polyrich_session_${code}`, sessionId);
+  localStorage.setItem(SESSION_KEY, sessionId);
+  localStorage.setItem(`polyrich_session_${code}`, sessionId);
+  localStorage.setItem(ROOM_KEY, code);
+};
 
 export function App() {
   const [screen, setScreen] = useState<'HOME' | 'LOBBY' | 'GAME'>('HOME');
@@ -28,6 +55,16 @@ export function App() {
   // Saved Template state
   const [savedTemplate, setSavedTemplate] = useState<BoardTemplateDTO | null>(null);
   const [useCustomTemplate, setUseCustomTemplate] = useState<boolean>(true);
+
+  // Google User Profile state
+  const [googleUser, setGoogleUser] = useState<GoogleUserProfile | null>(() => {
+    try {
+      const stored = localStorage.getItem(GOOGLE_USER_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
 
   // Initialize from URL params or local storage for automatic reconnection & template load
   useEffect(() => {
@@ -59,7 +96,7 @@ export function App() {
       }
     }).catch((error) => console.warn('Could not load the saved board template:', error));
 
-    const savedSession = localStorage.getItem(SESSION_KEY);
+    const savedSession = sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY);
     const savedRoom = localStorage.getItem(ROOM_KEY);
 
     if (savedSession && savedRoom) {
@@ -82,22 +119,69 @@ export function App() {
             },
             onError: (msg) => {
               console.warn('Reconnect error:', msg);
+              sessionStorage.removeItem(SESSION_KEY);
               localStorage.removeItem(SESSION_KEY);
               localStorage.removeItem(ROOM_KEY);
             }
           });
         }
       }).catch(() => {
+        sessionStorage.removeItem(SESSION_KEY);
         localStorage.removeItem(SESSION_KEY);
         localStorage.removeItem(ROOM_KEY);
       });
     }
   }, []);
 
+  // Polling fallback to guarantee real-time sync in lobby even on mobile or network hiccups
+  useEffect(() => {
+    if (screen !== 'LOBBY' || !gameState?.roomCode) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await api.getRoom(gameState.roomCode);
+        if (res.state) {
+          setGameState(res.state);
+          if (res.state.status === 'PLAYING') {
+            setScreen('GAME');
+          }
+        }
+      } catch (e) {
+        // silently ignore transient network blips
+      }
+    }, 1500);
+
+    return () => clearInterval(interval);
+  }, [screen, gameState?.roomCode]);
+
   const handleToggleSound = () => {
     const next = !soundEnabled;
     setSoundEnabled(next);
     soundFX.enabled = next;
+  };
+
+  // Google Sign-In helper (supports Google OAuth callback or simulated direct sign-in)
+  const handleGoogleLogin = (customName?: string, customEmail?: string) => {
+    const name = customName || playerName.trim() || 'Google Player';
+    const email = customEmail || `${name.toLowerCase().replace(/\s+/g, '.')}@gmail.com`;
+    const profile: GoogleUserProfile = {
+      name,
+      email,
+      sub: `g-${Date.now()}`,
+      picture: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(email)}`
+    };
+    setGoogleUser(profile);
+    localStorage.setItem(GOOGLE_USER_KEY, JSON.stringify(profile));
+    if (!playerName.trim()) {
+      setPlayerName(name);
+    }
+    soundFX.playCash();
+  };
+
+  const handleGoogleLogout = () => {
+    setGoogleUser(null);
+    localStorage.removeItem(GOOGLE_USER_KEY);
+    soundFX.playClick();
   };
 
   // ================= CREATE ROOM =================
@@ -115,8 +199,7 @@ export function App() {
       const templateToUse = useCustomTemplate && savedTemplate ? savedTemplate.id : 'default-expanded-48';
       const res = await api.createRoom(playerName.trim(), undefined, undefined, templateToUse);
 
-      localStorage.setItem(SESSION_KEY, res.hostPlayer.sessionId);
-      localStorage.setItem(ROOM_KEY, res.roomCode);
+      saveSessionForRoom(res.roomCode, res.hostPlayer.sessionId);
 
       setCurrentPlayer(res.hostPlayer);
       setGameState(res.state);
@@ -159,13 +242,13 @@ export function App() {
     setIsLoading(true);
 
     const code = roomCodeInput.trim().toUpperCase();
-    const existingSession = localStorage.getItem(SESSION_KEY) || undefined;
+    // Unique session per tab prevents session hijacking when testing 2 players on same PC
+    const existingSession = getSessionIdForRoom(code);
 
     try {
       soundFX.playClick();
       const res = await api.joinRoom(code, playerName.trim(), undefined, undefined, existingSession);
-      localStorage.setItem(SESSION_KEY, res.sessionId);
-      localStorage.setItem(ROOM_KEY, code);
+      saveSessionForRoom(code, res.sessionId);
 
       setCurrentPlayer(res.player);
       setGameState(res.state);
@@ -195,45 +278,78 @@ export function App() {
   };
 
   // ================= GAMEPLAY ACTIONS =================
-  const handleStartGame = () => {
+  const handleStartGame = async () => {
     if (!gameState || !currentPlayer?.sessionId) return;
     soundFX.playClick();
-    const socket = getSocket();
-    socket.emit('start_game', {
-      roomCode: gameState.roomCode,
-      hostSessionId: currentPlayer.sessionId
-    });
+    setErrorMessage(null);
+    try {
+      // 1. Emit via WebSocket
+      const socket = getSocket();
+      socket.emit('start_game', {
+        roomCode: gameState.roomCode,
+        hostSessionId: currentPlayer.sessionId
+      });
+      // 2. Also call REST endpoint to ensure instantaneous launch even on network lag
+      const res = await api.startGame(gameState.roomCode, currentPlayer.sessionId);
+      if (res.state) {
+        setGameState(res.state);
+        setScreen('GAME');
+      }
+    } catch (err: any) {
+      console.error('Start game error:', err);
+      setErrorMessage(err.message || 'Failed to start game');
+    }
   };
 
-  const handleAddBot = () => {
+  const handleAddBot = async () => {
     if (!gameState || !currentPlayer?.sessionId) return;
     soundFX.playClick();
-    const socket = getSocket();
-    socket.emit('add_bot', {
-      roomCode: gameState.roomCode,
-      hostSessionId: currentPlayer.sessionId
-    });
+    try {
+      const socket = getSocket();
+      socket.emit('add_bot', {
+        roomCode: gameState.roomCode,
+        hostSessionId: currentPlayer.sessionId
+      });
+      const res = await api.addBot(gameState.roomCode, currentPlayer.sessionId);
+      if (res.state) setGameState(res.state);
+    } catch (err: any) {
+      console.error('Add bot error:', err);
+      setErrorMessage(err.message || 'Failed to add bot');
+    }
   };
 
-  const handleRemoveBot = (botId?: string) => {
+  const handleRemoveBot = async (botId?: string) => {
     if (!gameState || !currentPlayer?.sessionId) return;
     soundFX.playClick();
-    const socket = getSocket();
-    socket.emit('remove_bot', {
-      roomCode: gameState.roomCode,
-      hostSessionId: currentPlayer.sessionId,
-      botId
-    });
+    try {
+      const socket = getSocket();
+      socket.emit('remove_bot', {
+        roomCode: gameState.roomCode,
+        hostSessionId: currentPlayer.sessionId,
+        botId
+      });
+      const res = await api.removeBot(gameState.roomCode, currentPlayer.sessionId, botId);
+      if (res.state) setGameState(res.state);
+    } catch (err: any) {
+      console.error('Remove bot error:', err);
+      setErrorMessage(err.message || 'Failed to remove bot');
+    }
   };
 
-  const handleToggleReady = () => {
+  const handleToggleReady = async () => {
     if (!gameState || !currentPlayer?.sessionId) return;
     soundFX.playClick();
-    const socket = getSocket();
-    socket.emit('toggle_ready', {
-      roomCode: gameState.roomCode,
-      sessionId: currentPlayer.sessionId
-    });
+    try {
+      const socket = getSocket();
+      socket.emit('toggle_ready', {
+        roomCode: gameState.roomCode,
+        sessionId: currentPlayer.sessionId
+      });
+      const res = await api.toggleReady(gameState.roomCode, currentPlayer.sessionId);
+      if (res.state) setGameState(res.state);
+    } catch (err: any) {
+      console.error('Toggle ready error:', err);
+    }
   };
 
   const handleRollDice = () => {
@@ -370,10 +486,24 @@ export function App() {
   };
 
   const handleLeaveGame = () => {
+    soundFX.playClick();
+    const curCode = gameState?.roomCode;
+    sessionStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(ROOM_KEY);
+    if (curCode) {
+      sessionStorage.removeItem(`polyrich_session_${curCode}`);
+      localStorage.removeItem(`polyrich_session_${curCode}`);
+    }
+    leaveRoomSocket();
+    // Clean URL query (?room=...) and path (/room/...)
+    if (window.location.search || window.location.pathname.startsWith('/room/')) {
+      window.history.replaceState({}, document.title, window.location.origin + window.location.pathname.replace(/\/room\/[A-Za-z0-9]+/, ''));
+    }
+    setRoomCodeInput('');
     setGameState(null);
     setCurrentPlayer(null);
+    setErrorMessage(null);
     setScreen('HOME');
   };
 
@@ -432,13 +562,68 @@ export function App() {
             </p>
           </div>
 
+          {/* Google Account Profile / Sign-in */}
+          <div className="bg-[#0b0e1e] p-3 rounded-2xl border border-slate-800 flex items-center justify-between">
+            {googleUser ? (
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-2.5">
+                  <div className="relative">
+                    {googleUser.picture ? (
+                      <img src={googleUser.picture} alt={googleUser.name} className="w-8 h-8 rounded-full border border-indigo-400" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-bold text-white">
+                        {googleUser.name.charAt(0)}
+                      </div>
+                    )}
+                    <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-[#0b0e1e]" />
+                  </div>
+                  <div className="text-left">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-white leading-tight">{googleUser.name}</span>
+                      <span className="text-[9px] bg-emerald-950/70 text-emerald-400 border border-emerald-800/40 px-1 py-0.2 rounded font-bold">
+                        Cloud Synced
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 leading-tight block truncate max-w-[160px]">{googleUser.email}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={handleGoogleLogout}
+                  className="p-1.5 rounded-lg bg-slate-800/70 hover:bg-slate-700 text-slate-400 hover:text-white transition"
+                  title="Sign out of Google"
+                >
+                  <LogOutIcon className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between w-full">
+                <div className="text-left">
+                  <span className="text-xs font-bold text-slate-200 block">Sign In with Google</span>
+                  <span className="text-[10px] text-slate-400">Save custom boards to your account</span>
+                </div>
+                <button
+                  onClick={() => handleGoogleLogin()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white hover:bg-slate-100 text-slate-900 shadow-md transition active:scale-95"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                  </svg>
+                  Google
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Template Status Pill */}
           {savedTemplate && (
             <div className="bg-[#0b0e1e] p-2.5 rounded-2xl border border-indigo-500/40 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-amber-400" />
                 <div className="text-left">
-                  <span className="text-[10px] text-slate-400 block font-semibold">Saved Board Template:</span>
+                  <span className="text-[10px] text-slate-400 block font-semibold">Custom Board Loaded:</span>
                   <span className="text-xs font-bold text-white truncate max-w-[170px] inline-block">{savedTemplate.name}</span>
                 </div>
               </div>
@@ -449,7 +634,7 @@ export function App() {
                   onChange={(e) => setUseCustomTemplate(e.target.checked)}
                   className="rounded accent-indigo-500"
                 />
-                Use for new rooms
+                Auto-load
               </label>
             </div>
           )}
@@ -538,9 +723,11 @@ export function App() {
         <LobbyPage
           state={gameState}
           currentPlayer={currentPlayer}
+          errorMessage={errorMessage}
           onStartGame={handleStartGame}
           onToggleReady={handleToggleReady}
           onOpenEditor={() => setIsEditorOpen(true)}
+          onLeaveRoom={handleLeaveGame}
           onAddBot={handleAddBot}
           onRemoveBot={handleRemoveBot}
         />

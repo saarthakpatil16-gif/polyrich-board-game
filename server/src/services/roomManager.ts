@@ -1067,6 +1067,19 @@ export class RoomManager {
     if (player.money < cost) throw new Error('Insufficient funds to upgrade');
     if ((tile.upgradeLevel || 0) >= 3) throw new Error('Property already at maximum upgrade tier');
 
+    // Rule: Must own all properties of this color category to build houses/hotels
+    if (tile.colorGroup) {
+      const groupProperties = room.boardTiles.filter(t => t.type === 'PROPERTY' && t.colorGroup === tile.colorGroup);
+      const allOwnedByPlayer = groupProperties.length > 0 && groupProperties.every(t => t.ownerId === player.id);
+      if (!allOwnedByPlayer) {
+        throw new Error(`You must own all ${groupProperties.length} properties in the ${tile.district || 'color'} group to develop houses or hotels!`);
+      }
+      const anyMortgaged = groupProperties.some(t => t.isMortgaged);
+      if (anyMortgaged) {
+        throw new Error('Cannot develop properties while any property in the group is mortgaged!');
+      }
+    }
+
     player.money -= cost;
     tile.upgradeLevel = (tile.upgradeLevel || 0) + 1;
 

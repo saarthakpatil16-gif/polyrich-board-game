@@ -139,7 +139,9 @@ export function setupGameSockets(io: Server) {
     socket.on('start_game', (data: { roomCode: string; hostSessionId: string }) => {
       try {
         const room = roomManager.startGame(data.roomCode, data.hostSessionId);
-        io.to(data.roomCode.toUpperCase()).emit('game_started', roomManager.getPublicState(room));
+        const publicState = roomManager.getPublicState(room);
+        io.to(data.roomCode.toUpperCase()).emit('game_started', publicState);
+        io.to(data.roomCode.toUpperCase()).emit('game_state_updated', publicState);
         triggerBotTurnIfNeeded(data.roomCode);
       } catch (err: any) {
         socket.emit('error_message', { message: err.message });

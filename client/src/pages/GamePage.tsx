@@ -8,7 +8,7 @@ import { WinnerModal } from '../components/modals/WinnerModal';
 import { TradeModal } from '../components/modals/TradeModal';
 import { AuctionModal } from '../components/modals/AuctionModal';
 import { soundFX } from '../utils/audio';
-import { Sliders, Volume2, VolumeX, LogOut } from 'lucide-react';
+import { Sliders, Volume2, VolumeX, LogOut, Building2, ChevronUp, ChevronDown, ArrowUpCircle, Lock, Unlock, DollarSign, Skull } from 'lucide-react';
 
 interface GamePageProps {
   state: PublicGameState;
@@ -63,6 +63,9 @@ export const GamePage: React.FC<GamePageProps> = ({
   // Trade Modal Open state
   const [isTradeModalOpen, setIsTradeModalOpen] = useState<boolean>(false);
 
+  // My Properties Dashboard expanded state
+  const [isDashboardOpen, setIsDashboardOpen] = useState<boolean>(false);
+
   // Pawn Step-by-Step Moving Animation State
   const [displayedPositions, setDisplayedPositions] = useState<Record<string, number>>({});
   const [isPawnMoving, setIsPawnMoving] = useState<boolean>(false);
@@ -72,6 +75,11 @@ export const GamePage: React.FC<GamePageProps> = ({
   const prevPositionsRef = useRef<Record<string, number>>({});
   const isHost = currentPlayer?.isHost || false;
   const isMyTurn = currentPlayer?.id === state.activePlayerId;
+
+  // My owned properties
+  const myProperties = currentPlayer
+    ? state.boardTiles.filter(t => t.ownerId === currentPlayer.id && t.type === 'PROPERTY')
+    : [];
 
   // Initialize or track player movements
   useEffect(() => {
@@ -123,7 +131,7 @@ export const GamePage: React.FC<GamePageProps> = ({
             setHoppingPlayerId(null);
             setVisiblePopup(state.activePopup || null);
           }
-        }, 180);
+        }, 380);
 
         return () => clearInterval(timer);
       } else {
@@ -150,6 +158,8 @@ export const GamePage: React.FC<GamePageProps> = ({
   const inspectedTileOwner = inspectedTile?.ownerId 
     ? state.players.find(p => p.id === inspectedTile.ownerId) || null 
     : null;
+
+  const upgradeLabels = ['', '🏠 1 House', '🏠🏠 2 Houses', '🏨 Hotel'];
 
   return (
     <div className="h-screen w-screen max-w-full overflow-hidden bg-[#070914] text-slate-100 flex flex-col p-1 sm:p-2.5 select-none">
@@ -179,6 +189,17 @@ export const GamePage: React.FC<GamePageProps> = ({
             </button>
           )}
 
+          {onDeclareBankruptcy && (
+            <button
+              onClick={onDeclareBankruptcy}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 hover:text-rose-200 border border-rose-800/40 transition"
+              title="Declare Bankruptcy"
+            >
+              <Skull className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Bankrupt</span>
+            </button>
+          )}
+
           <button
             onClick={onToggleSound}
             className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
@@ -198,7 +219,7 @@ export const GamePage: React.FC<GamePageProps> = ({
       </header>
 
       {/* Main Game Content Area - Flexible Viewport Fitting */}
-      <div className="flex-1 flex flex-col justify-between gap-1 max-w-[1200px] w-full mx-auto min-h-0 overflow-hidden">
+      <div className="flex-1 flex flex-col gap-1 max-w-[1200px] w-full mx-auto min-h-0 overflow-hidden">
         {/* Compact Players Panel */}
         <PlayerList
           players={state.players}
@@ -225,6 +246,149 @@ export const GamePage: React.FC<GamePageProps> = ({
             onDeclareBankruptcy={onDeclareBankruptcy}
           />
         </div>
+
+        {/* ── MY PROPERTIES DASHBOARD (slide-up drawer) ── */}
+        <div className={`w-full bg-[#0d1021]/95 border border-[#232b4b] rounded-xl shadow-2xl overflow-hidden transition-all duration-300 shrink-0 ${isDashboardOpen ? 'max-h-52 sm:max-h-64' : 'max-h-9 sm:max-h-10'}`}>
+          {/* Dashboard Header / Toggle */}
+          <button
+            onClick={() => { soundFX.playClick(); setIsDashboardOpen(prev => !prev); }}
+            className="w-full flex items-center justify-between px-3 py-1.5 sm:py-2 text-left hover:bg-slate-800/40 transition"
+          >
+            <div className="flex items-center gap-2">
+              <Building2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-400" />
+              <span className="text-[10px] sm:text-xs font-bold text-slate-200">
+                My Properties
+              </span>
+              {myProperties.length > 0 && (
+                <span className="text-[9px] bg-indigo-600/40 text-indigo-300 font-bold px-1.5 py-0.5 rounded-full border border-indigo-500/40">
+                  {myProperties.length}
+                </span>
+              )}
+              {/* Cash display */}
+              {currentPlayer && (
+                <span className="flex items-center gap-0.5 text-[9px] sm:text-[10px] text-emerald-400 font-bold ml-1">
+                  <DollarSign className="w-2.5 h-2.5" />
+                  {currentPlayer.money}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              {myProperties.length === 0 && !isDashboardOpen && (
+                <span className="text-[9px] text-slate-500 italic">No properties yet</span>
+              )}
+              {isDashboardOpen 
+                ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                : <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
+              }
+            </div>
+          </button>
+
+          {/* Dashboard Body */}
+          {isDashboardOpen && (
+            <div className="overflow-x-auto overflow-y-hidden border-t border-slate-800/60">
+              {myProperties.length === 0 ? (
+                <div className="flex items-center justify-center py-6 text-[10px] sm:text-xs text-slate-500 italic">
+                  You don't own any properties yet. Land on a space and buy it!
+                </div>
+              ) : (
+                <div className="flex items-stretch gap-2 p-2" style={{ minWidth: 'max-content' }}>
+                  {myProperties.map(tile => {
+                    const upgradeLevel = tile.upgradeLevel ?? 0;
+                    // Check if player owns all properties of this color category
+                    const colorGroupTiles = state.boardTiles.filter(t => t.type === 'PROPERTY' && t.colorGroup === tile.colorGroup);
+                    const ownsEntireColorGroup = colorGroupTiles.length > 0 && colorGroupTiles.every(t => t.ownerId === currentPlayer?.id);
+                    const hasMortgagedInGroup = colorGroupTiles.some(t => t.isMortgaged);
+                    const canUpgrade = ownsEntireColorGroup && !hasMortgagedInGroup && !tile.isMortgaged && upgradeLevel < 3 && currentPlayer && currentPlayer.money >= (tile.upgradeCost || 100);
+                    const canMortgage = !tile.isMortgaged && upgradeLevel === 0;
+                    const unmortgageCost = Math.round(tile.price * 0.55);
+                    const canUnmortgage = tile.isMortgaged && currentPlayer && currentPlayer.money >= unmortgageCost;
+
+                    return (
+                      <div
+                        key={tile.id}
+                        className={`flex flex-col rounded-xl border overflow-hidden shrink-0 w-28 sm:w-32 ${
+                          tile.isMortgaged ? 'opacity-50 border-slate-700' : 'border-slate-700/80'
+                        }`}
+                        style={{ backgroundColor: '#13172c' }}
+                      >
+                        {/* Color band */}
+                        <div
+                          className="h-2 w-full shrink-0"
+                          style={{ backgroundColor: tile.colorGroup ?? '#6366f1' }}
+                        />
+
+                        {/* Tile image / icon */}
+                        <div className="h-10 sm:h-12 w-full flex items-center justify-center bg-slate-900/50 overflow-hidden">
+                          {tile.imageUrl ? (
+                            <img src={tile.imageUrl} alt={tile.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <Building2 className="w-5 h-5 sm:w-6 sm:h-6 text-slate-500" />
+                          )}
+                        </div>
+
+                        {/* Info */}
+                        <div className="px-1.5 pt-1 pb-0.5 flex flex-col gap-0.5 flex-1">
+                          <span className="text-[9px] sm:text-[10px] font-bold text-slate-200 truncate">{tile.name}</span>
+                          <div className="flex items-center justify-between text-[8px] sm:text-[9px] text-slate-400">
+                            <span>{tile.isMortgaged ? '🔒 Mortgaged' : upgradeLevel > 0 ? upgradeLabels[upgradeLevel] : 'No dev'}</span>
+                            <span className="text-emerald-400 font-bold">${tile.baseRent}</span>
+                          </div>
+                          {!tile.isMortgaged && upgradeLevel > 0 && (
+                            <span className="text-[7px] sm:text-[8px] text-amber-400">Rent: ${
+                              upgradeLevel === 1 ? tile.rentLevel1 : upgradeLevel === 2 ? tile.rentLevel2 : tile.rentLevel3
+                            }</span>
+                          )}
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex gap-0.5 px-1 pb-1 pt-0.5">
+                          {canUpgrade && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onUpgradeProperty(tile.id); }}
+                              className="flex-1 flex items-center justify-center gap-0.5 py-1 rounded-lg text-[8px] sm:text-[9px] font-bold bg-amber-600/30 hover:bg-amber-600/60 text-amber-300 border border-amber-600/40 transition active:scale-95"
+                              title={`Upgrade for $${tile.upgradeCost}`}
+                            >
+                              <ArrowUpCircle className="w-2.5 h-2.5 shrink-0" />
+                              Dev ${tile.upgradeCost}
+                            </button>
+                          )}
+                          {canMortgage && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onMortgageProperty(tile.id); }}
+                              className="flex-1 flex items-center justify-center gap-0.5 py-1 rounded-lg text-[8px] sm:text-[9px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600/40 transition active:scale-95"
+                              title={`Mortgage for $${Math.round(tile.price * 0.5)}`}
+                            >
+                              <Lock className="w-2.5 h-2.5 shrink-0" />
+                              Mtg
+                            </button>
+                          )}
+                          {canUnmortgage && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onUnmortgageProperty(tile.id); }}
+                              className="flex-1 flex items-center justify-center gap-0.5 py-1 rounded-lg text-[8px] sm:text-[9px] font-bold bg-emerald-700/40 hover:bg-emerald-700/70 text-emerald-300 border border-emerald-600/40 transition active:scale-95"
+                              title={`Unmortgage for $${unmortgageCost}`}
+                            >
+                              <Unlock className="w-2.5 h-2.5 shrink-0" />
+                              Unmtg
+                            </button>
+                          )}
+                          {!canUpgrade && !canMortgage && !canUnmortgage && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleTileClick(tile); }}
+                              className="flex-1 flex items-center justify-center py-1 rounded-lg text-[8px] font-medium bg-slate-900/60 text-slate-500 border border-slate-800 transition"
+                            >
+                              View Deed
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Event Popup Modal (Landing triggers: Rewards, Punishments, Property Buy, Taxes) */}
@@ -240,6 +404,7 @@ export const GamePage: React.FC<GamePageProps> = ({
         tile={inspectedTile}
         owner={inspectedTileOwner}
         currentPlayer={currentPlayer}
+        allTiles={state.boardTiles}
         onUpgrade={(tileId) => {
           onUpgradeProperty(tileId);
           setInspectedTile(null);
