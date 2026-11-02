@@ -24,12 +24,12 @@ export class GameEngine {
    * Roll dice with cryptographic randomness on every roll
    */
   public static rollDice(rules: GameRulesDTO): { dice1: number; dice2: number; total: number; isDouble: boolean } {
-    const sides = rules.diceSides || 6;
-    // crypto.randomInt provides cryptographically strong pseudo-random integers
+    const sides = Math.max(2, rules.diceSides || 6);
+    // crypto.randomInt provides cryptographically strong pseudo-random integers in range [min, max)
     const dice1 = crypto.randomInt(1, sides + 1);
-    const dice2 = rules.diceCount > 1 ? crypto.randomInt(1, sides + 1) : 0;
-    const total = rules.diceCount > 1 ? dice1 + dice2 : dice1;
-    const isDouble = rules.diceCount > 1 && dice1 === dice2;
+    const dice2 = (rules.diceCount || 2) > 1 ? crypto.randomInt(1, sides + 1) : 0;
+    const total = (rules.diceCount || 2) > 1 ? dice1 + dice2 : dice1;
+    const isDouble = (rules.diceCount || 2) > 1 && dice1 === dice2;
     return { dice1, dice2, total, isDouble };
   }
 

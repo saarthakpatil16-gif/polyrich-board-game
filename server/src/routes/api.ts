@@ -52,7 +52,31 @@ export interface UploadedImageMeta {
   uploadedAt: string;
 }
 
-const uploadedImages: UploadedImageMeta[] = [];
+function loadUploadedImagesFromDisk(): UploadedImageMeta[] {
+  try {
+    if (!fs.existsSync(uploadsDir)) return [];
+    const files = fs.readdirSync(uploadsDir);
+    return files
+      .filter(f => /\.(jpg|jpeg|png|webp|svg)$/i.test(f))
+      .map(filename => {
+        const stats = fs.statSync(path.join(uploadsDir, filename));
+        return {
+          id: filename,
+          filename,
+          originalName: filename,
+          url: `/uploads/${filename}`,
+          size: stats.size,
+          uploadedAt: stats.mtime.toISOString()
+        };
+      })
+      .sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
+  } catch (e) {
+    console.error('Error loading uploads from disk:', e);
+    return [];
+  }
+}
+
+const uploadedImages: UploadedImageMeta[] = loadUploadedImagesFromDisk();
 
 // =================== IMAGE UPLOAD ENDPOINTS ===================
 
@@ -95,7 +119,7 @@ router.post('/upload', upload.single('photo'), (req: Request, res: Response) => 
  */
 router.get('/images', (_req: Request, res: Response) => {
   return res.json({
-    images: uploadedImages
+    images: uploadedImages.length > 0 ? uploadedImages : loadUploadedImagesFromDisk()
   });
 });
 
@@ -114,7 +138,7 @@ router.delete('/images/:filename', (req: Request, res: Response) => {
     }
   }
 
-  const idx = uploadedImages.findIndex(img => img.filename === filename);
+  const idx = uploadedImages.findIndex(img => img.filename === filename || img.id === filename);
   if (idx !== -1) {
     uploadedImages.splice(idx, 1);
   }

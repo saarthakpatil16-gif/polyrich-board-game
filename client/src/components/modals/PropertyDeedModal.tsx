@@ -69,7 +69,7 @@ export const PropertyDeedModal: React.FC<PropertyDeedModalProps> = ({
               <img 
                 src={tile.imageUrl} 
                 alt={tile.name} 
-                className={`w-full h-full object-${tile.imageFit || 'cover'}`} 
+                className={`w-full h-full ${tile.imageFit === 'contain' ? 'object-contain' : 'object-cover'}`} 
               />
             </div>
           )}

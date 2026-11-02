@@ -64,23 +64,26 @@ export const CenterPanel: React.FC<CenterPanelProps> = ({
   };
 
   const handleRollClick = () => {
-    if (!isMyTurn || isRollingAnimation || isPawnMoving) return;
+    if (!isMyTurn || isRollingAnimation) return;
 
     setIsRollingAnimation(true);
     soundFX.playDiceRoll();
 
-    // Rapidly tumble dice faces for 900ms
+    // Call server roll immediately so RNG calculation starts without lag
+    onRollDice();
+
+    // Rapidly tumble dice faces for 550ms
     const interval = setInterval(() => {
       const d1 = Math.floor(Math.random() * 6) + 1;
       const d2 = Math.floor(Math.random() * 6) + 1;
       setAnimatedDice([d1, d2]);
-    }, 60);
+    }, 55);
 
     setTimeout(() => {
       clearInterval(interval);
       setIsRollingAnimation(false);
-      onRollDice();
-    }, 900);
+      setAnimatedDice([state.dice[0] || 1, state.dice[1] || 1]);
+    }, 550);
   };
 
   const renderDiceFace = (val: number, isRolling: boolean) => {
@@ -177,15 +180,15 @@ export const CenterPanel: React.FC<CenterPanelProps> = ({
           {state.actionStage === 'AWAITING_ROLL' && (
             <button
               onClick={handleRollClick}
-              disabled={!isMyTurn || isRollingAnimation || isPawnMoving}
+              disabled={!isMyTurn || isRollingAnimation}
               className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl font-bold text-[10px] sm:text-xs shadow-lg transition-all ${
-                isMyTurn && !isRollingAnimation && !isPawnMoving
-                  ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 text-white scale-105 active:scale-95'
+                isMyTurn && !isRollingAnimation
+                  ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 text-white scale-105 active:scale-95 cursor-pointer'
                   : 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-60'
               }`}
             >
               <Dices className={`w-3.5 h-3.5 ${isRollingAnimation ? 'animate-spin' : ''}`} />
-              {isRollingAnimation ? 'Rolling…' : isPawnMoving ? 'Moving…' : 'Roll Dice'}
+              {isRollingAnimation ? 'Rolling…' : 'Roll Dice'}
             </button>
           )}
 

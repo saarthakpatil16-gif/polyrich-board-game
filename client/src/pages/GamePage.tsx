@@ -114,6 +114,14 @@ export const GamePage: React.FC<GamePageProps> = ({
         let currentStep = 0;
         let currentPos = oldPos;
 
+        // Auto-release safety timeout so the game can never get stuck on hopping animation
+        const safetyTimer = setTimeout(() => {
+          setIsPawnMoving(false);
+          setHoppingPlayerId(null);
+          prevPositionsRef.current[activePlayer.id] = targetPos;
+          setVisiblePopup(state.activePopup || null);
+        }, 2500);
+
         const timer = setInterval(() => {
           currentStep++;
           currentPos = (currentPos + 1) % totalTiles;
@@ -126,18 +134,28 @@ export const GamePage: React.FC<GamePageProps> = ({
 
           if (currentStep >= steps || currentPos === targetPos) {
             clearInterval(timer);
+            clearTimeout(safetyTimer);
             prevPositionsRef.current[activePlayer.id] = targetPos;
             setIsPawnMoving(false);
             setHoppingPlayerId(null);
             setVisiblePopup(state.activePopup || null);
           }
-        }, 380);
+        }, 340);
 
-        return () => clearInterval(timer);
+        return () => {
+          clearInterval(timer);
+          clearTimeout(safetyTimer);
+          setIsPawnMoving(false);
+          setHoppingPlayerId(null);
+        };
       } else {
+        setIsPawnMoving(false);
+        setHoppingPlayerId(null);
         setVisiblePopup(state.activePopup || null);
       }
     } else {
+      setIsPawnMoving(false);
+      setHoppingPlayerId(null);
       setVisiblePopup(state.activePopup || null);
     }
   }, [state.players, state.activePlayerId, state.activePopup, state.boardTiles.length]);

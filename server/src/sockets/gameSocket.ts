@@ -54,7 +54,9 @@ export function setupGameSockets(io: Server) {
                   if (!endTurnRoom || endTurnRoom.status !== 'PLAYING') return;
                   if (endTurnRoom.players[endTurnRoom.currentTurnIdx]?.id === curPlayer.id) {
                     const finalState = roomManager.endTurn(roomCode, curPlayer.sessionId);
-                    io.to(roomCode.toUpperCase()).emit('turn_ended', roomManager.getPublicState(finalState));
+                    const pubState = roomManager.getPublicState(finalState);
+                    io.to(roomCode.toUpperCase()).emit('turn_ended', pubState);
+                    io.to(roomCode.toUpperCase()).emit('game_state_updated', pubState);
                     triggerBotTurnIfNeeded(roomCode);
                   }
                 } catch (e) {
@@ -166,12 +168,14 @@ export function setupGameSockets(io: Server) {
     socket.on('roll_dice', (data: { roomCode: string; sessionId: string }) => {
       try {
         const room = roomManager.rollDice(data.roomCode, data.sessionId);
+        const pubState = roomManager.getPublicState(room);
         io.to(data.roomCode.toUpperCase()).emit('dice_rolled', {
           dice: room.dice,
           total: room.lastRollTotal,
           activePlayerId: room.activePlayerId,
-          state: roomManager.getPublicState(room)
+          state: pubState
         });
+        io.to(data.roomCode.toUpperCase()).emit('game_state_updated', pubState);
       } catch (err: any) {
         socket.emit('error_message', { message: err.message });
       }
@@ -339,7 +343,9 @@ export function setupGameSockets(io: Server) {
     socket.on('end_turn', (data: { roomCode: string; sessionId: string }) => {
       try {
         const room = roomManager.endTurn(data.roomCode, data.sessionId);
-        io.to(data.roomCode.toUpperCase()).emit('turn_ended', roomManager.getPublicState(room));
+        const pubState = roomManager.getPublicState(room);
+        io.to(data.roomCode.toUpperCase()).emit('turn_ended', pubState);
+        io.to(data.roomCode.toUpperCase()).emit('game_state_updated', pubState);
         triggerBotTurnIfNeeded(data.roomCode);
       } catch (err: any) {
         socket.emit('error_message', { message: err.message });

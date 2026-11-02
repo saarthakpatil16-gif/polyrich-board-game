@@ -108,7 +108,7 @@ export const TileView: React.FC<TileViewProps> = ({
           <img
             src={tile.imageUrl}
             alt={tile.name}
-            className={`w-full h-full object-${tile.imageFit || 'cover'}`}
+            className={`w-full h-full ${tile.imageFit === 'contain' ? 'object-contain' : 'object-cover'}`}
             style={{ imageRendering: 'auto' }}
             loading="eager"
           />

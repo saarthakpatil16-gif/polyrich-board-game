@@ -20,6 +20,7 @@ import {
   Sliders, 
   Users, 
   CheckCircle, 
+  Check, 
   Save, 
   Plus, 
   Trash2, 
@@ -74,6 +75,7 @@ export const HostAdminDashboard: React.FC<HostAdminDashboardProps> = ({
 
   // Selected tile for granular editing
   const [selectedTileId, setSelectedTileId] = useState<string>(tiles[0]?.id || '');
+  const [imageInputUrl, setImageInputUrl] = useState<string>('');
 
   // Load uploaded photos on mount
   React.useEffect(() => {
@@ -175,6 +177,9 @@ export const HostAdminDashboard: React.FC<HostAdminDashboardProps> = ({
       const res = await api.uploadPhoto(file);
       if (res.success && res.image) {
         setUploadedPhotos(prev => [res.image, ...prev]);
+        if (selectedTileId) {
+          handleUpdateTile(selectedTileId, { imageUrl: res.image.url });
+        }
         soundFX.playCash();
       }
     } catch (err: any) {
@@ -185,9 +190,11 @@ export const HostAdminDashboard: React.FC<HostAdminDashboardProps> = ({
     }
   };
 
-  const handleAssignPhotoToTile = (imageUrl: string | null) => {
-    if (!selectedTileId) return;
-    handleUpdateTile(selectedTileId, { imageUrl });
+  const handleAssignPhotoToTile = (imageUrl: string | null, targetTileId?: string) => {
+    const id = targetTileId || selectedTileId;
+    if (!id) return;
+    handleUpdateTile(id, { imageUrl });
+    soundFX.playClick();
   };
 
   const handleTileDirectUpload = async (tileId: string, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -208,6 +215,17 @@ export const HostAdminDashboard: React.FC<HostAdminDashboardProps> = ({
     } finally {
       setIsUploading(false);
       e.target.value = '';
+    }
+  };
+
+  const handleDeletePhoto = async (filename: string) => {
+    if (!window.confirm('Delete this uploaded photograph?')) return;
+    try {
+      await api.deletePhoto(filename);
+      setUploadedPhotos(prev => prev.filter(p => p.filename !== filename && p.id !== filename));
+      soundFX.playClick();
+    } catch (err: any) {
+      alert(`Delete error: ${err.message}`);
     }
   };
 
@@ -558,7 +576,7 @@ export const HostAdminDashboard: React.FC<HostAdminDashboardProps> = ({
                         <img 
                           src={currentSelectedTile.imageUrl} 
                           alt="tile" 
-                          className={`w-full h-full object-${currentSelectedTile.imageFit || 'cover'}`} 
+                          className={`w-full h-full ${currentSelectedTile.imageFit === 'contain' ? 'object-contain' : 'object-cover'}`} 
                         />
                       ) : (
                         <ImageIcon className="w-5 h-5 text-slate-500" />
@@ -629,17 +647,20 @@ export const HostAdminDashboard: React.FC<HostAdminDashboardProps> = ({
 
           {/* ================= TAB 3: CITY IMAGES ================= */}
           {activeTab === 3 && (
-            <div className="max-w-4xl mx-auto flex flex-col gap-5">
-              <div className="pb-3 border-b border-slate-800 flex items-center justify-between">
+            <div className="max-w-4xl mx-auto flex flex-col gap-6">
+              {/* Header */}
+              <div className="pb-3 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-lg font-bold text-white">City & Location Photo Manager</h2>
-                  <p className="text-xs text-slate-400">
-                    Upload your own JPEG, PNG, or WebP photographs. All players in the room will see the same photos. No stock/AI photos are used.
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    <ImageIcon className="w-5 h-5 text-indigo-400" /> City & Location Photo Manager
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Upload and manage custom photographs for all cities and properties. Photographs appear on board tiles, deed modals, and property cards.
                   </p>
                 </div>
-                <label className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer shadow-md transition">
+                <label className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer shadow-md transition self-start sm:self-auto shrink-0">
                   <Upload className="w-4 h-4" />
-                  {isUploading ? 'Uploading...' : 'Upload Photograph'}
+                  {isUploading ? 'Uploading...' : 'Upload New Photo'}
                   <input
                     type="file"
                     accept="image/png,image/jpeg,image/webp"
@@ -650,86 +671,216 @@ export const HostAdminDashboard: React.FC<HostAdminDashboardProps> = ({
                 </label>
               </div>
 
-              {/* Current Tile Photo Assignment Status */}
+              {/* 1. City / Tile Selector Dropdown */}
+              <div className="bg-[#11152a] rounded-2xl border border-[#232b4b] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+                <div className="flex-1">
+                  <label className="block text-xs font-bold text-slate-300 mb-1 flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-indigo-400" /> Select City / Tile to Customize Image:
+                  </label>
+                  <select
+                    value={selectedTileId}
+                    onChange={(e) => {
+                      setSelectedTileId(e.target.value);
+                      setImageInputUrl('');
+                    }}
+                    className="w-full bg-[#0a0d1a] border border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:border-indigo-500 focus:outline-none"
+                  >
+                    {tiles.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        #{t.index} — {t.name} ({t.type === 'PROPERTY' ? `${t.district || 'City'} • $${t.price}` : t.type}) {t.imageUrl ? '✓ Has Image' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[11px] text-slate-400">Total Cities with Images:</span>
+                  <span className="text-xs font-bold text-emerald-400 bg-emerald-950/70 border border-emerald-800/50 px-2 py-0.5 rounded-full">
+                    {tiles.filter(t => !!t.imageUrl).length} / {tiles.length}
+                  </span>
+                </div>
+              </div>
+
+              {/* 2. Active Tile Customization Studio */}
               {currentSelectedTile && (
-                <div className="bg-[#11152a] rounded-2xl border border-[#232b4b] p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-16 h-12 rounded-lg bg-slate-900 border border-slate-700 overflow-hidden flex items-center justify-center shrink-0">
-                      {currentSelectedTile.imageUrl ? (
-                        <img 
-                          src={currentSelectedTile.imageUrl} 
-                          alt="tile" 
-                          className={`w-full h-full object-${currentSelectedTile.imageFit || 'cover'}`} 
-                        />
-                      ) : (
-                        <span className="text-[10px] text-slate-500">No Image</span>
-                      )}
+                <div className="bg-[#11152a] rounded-2xl border border-indigo-500/40 p-4 sm:p-5 flex flex-col gap-4 shadow-xl relative overflow-hidden">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                    <div className="flex items-center gap-3">
+                      <div className="w-16 h-16 rounded-xl bg-slate-900 border-2 border-slate-700 overflow-hidden flex items-center justify-center shrink-0 shadow-md">
+                        {currentSelectedTile.imageUrl ? (
+                          <img 
+                            src={currentSelectedTile.imageUrl} 
+                            alt={currentSelectedTile.name} 
+                            className={`w-full h-full ${currentSelectedTile.imageFit === 'contain' ? 'object-contain' : 'object-cover'}`} 
+                          />
+                        ) : (
+                          <ImageIcon className="w-6 h-6 text-slate-600" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs px-2 py-0.5 rounded-md font-bold bg-indigo-900/60 text-indigo-300 border border-indigo-700/50">
+                            Tile #{currentSelectedTile.index}
+                          </span>
+                          <span className="text-sm font-extrabold text-white">{currentSelectedTile.name}</span>
+                          {currentSelectedTile.colorGroup && (
+                            <span 
+                              className="w-3.5 h-3.5 rounded-full border border-white/60 inline-block" 
+                              style={{ backgroundColor: currentSelectedTile.colorGroup }} 
+                            />
+                          )}
+                        </div>
+                        <span className="text-[11px] text-slate-400 block mt-1">
+                          {currentSelectedTile.imageUrl ? '✓ Custom image is active on board & property deed' : 'No image currently assigned to this tile'}
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-xs text-slate-400 block">Selected Tile #{currentSelectedTile.index}</span>
-                      <span className="text-sm font-bold text-white">{currentSelectedTile.name}</span>
+
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                      <select
+                        value={currentSelectedTile.imageFit || 'cover'}
+                        onChange={(e) => handleUpdateTile(currentSelectedTile.id, { imageFit: e.target.value as any })}
+                        className="bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 font-medium"
+                      >
+                        <option value="cover">Fit: Cover (fills tile)</option>
+                        <option value="contain">Fit: Contain (uncropped)</option>
+                      </select>
+
+                      {currentSelectedTile.imageUrl && (
+                        <button
+                          onClick={() => handleAssignPhotoToTile(null)}
+                          className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-950/70 text-rose-300 border border-rose-800/50 hover:bg-rose-900 transition"
+                        >
+                          Remove Image
+                        </button>
+                      )}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={currentSelectedTile.imageFit || 'cover'}
-                      onChange={(e) => handleUpdateTile(currentSelectedTile.id, { imageFit: e.target.value as any })}
-                      className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300"
-                    >
-                      <option value="cover">Fit: Cover (Crop)</option>
-                      <option value="contain">Fit: Contain (Whole)</option>
-                    </select>
+                  {/* Upload & URL Assignment Controls */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                    {/* Direct Upload for this tile */}
+                    <div className="bg-[#0a0d1a] border border-slate-800 rounded-xl p-3 flex items-center justify-between gap-3">
+                      <div>
+                        <span className="text-xs font-bold text-white block">Upload Image for this City</span>
+                        <span className="text-[10px] text-slate-400">JPG, PNG, or WebP from your computer</span>
+                      </div>
+                      <label className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer shadow transition shrink-0 active:scale-95">
+                        <Upload className="w-3.5 h-3.5" />
+                        {isUploading ? 'Uploading...' : 'Choose File'}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          className="hidden"
+                          onChange={(e) => handleTileDirectUpload(currentSelectedTile.id, e)}
+                          disabled={isUploading}
+                        />
+                      </label>
+                    </div>
 
-                    {currentSelectedTile.imageUrl && (
+                    {/* Or Paste Web Image URL */}
+                    <div className="bg-[#0a0d1a] border border-slate-800 rounded-xl p-3 flex items-center gap-2">
+                      <input
+                        type="url"
+                        placeholder="Or paste image URL (https://...)"
+                        value={imageInputUrl}
+                        onChange={(e) => setImageInputUrl(e.target.value)}
+                        className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                      />
                       <button
-                        onClick={() => handleAssignPhotoToTile(null)}
-                        className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-950/60 text-rose-400 border border-rose-800/40 hover:bg-rose-900 transition"
+                        onClick={() => {
+                          if (!imageInputUrl.trim()) return;
+                          handleUpdateTile(currentSelectedTile.id, { imageUrl: imageInputUrl.trim() });
+                          setImageInputUrl('');
+                          soundFX.playCash();
+                        }}
+                        disabled={!imageInputUrl.trim()}
+                        className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-indigo-600 text-white transition disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                       >
-                        Remove Photo
+                        Apply URL
                       </button>
-                    )}
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Uploaded Gallery Grid */}
-              <div className="flex flex-col gap-2">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  Your Uploaded Photographs ({uploadedPhotos.length})
-                </span>
+              {/* 3. Uploaded Image Library Grid */}
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <ImageIcon className="w-4 h-4 text-indigo-400" /> Uploaded Image Library ({uploadedPhotos.length})
+                  </span>
+                  <span className="text-[11px] text-slate-400">Click any image to assign to active city</span>
+                </div>
 
                 {uploadedPhotos.length === 0 ? (
                   <div className="p-8 text-center bg-[#11152a] border border-dashed border-slate-800 rounded-2xl">
                     <ImageIcon className="w-10 h-10 text-slate-600 mx-auto mb-2" />
-                    <p className="text-sm font-medium text-slate-400">No photographs uploaded yet.</p>
-                    <p className="text-xs text-slate-500 mt-1">Upload photos to assign them to cities and properties.</p>
+                    <p className="text-sm font-medium text-slate-400">No photographs in library yet.</p>
+                    <p className="text-xs text-slate-500 mt-1">Upload photos to assign them to cities and properties on your custom board.</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                    {uploadedPhotos.map(photo => (
-                      <div
-                        key={photo.id}
-                        className="group relative rounded-xl overflow-hidden border border-slate-800 bg-slate-900/60 aspect-video shadow-md hover:border-indigo-500 transition"
-                      >
-                        <img 
-                          src={photo.url} 
-                          alt={photo.originalName} 
-                          className="w-full h-full object-cover" 
-                        />
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex flex-col justify-between p-2">
-                          <span className="text-[10px] text-white truncate font-medium">
-                            {photo.originalName}
-                          </span>
-                          <button
-                            onClick={() => handleAssignPhotoToTile(photo.url)}
-                            className="w-full py-1 text-[11px] font-bold rounded bg-indigo-600 hover:bg-indigo-500 text-white shadow"
-                          >
-                            Assign to #{currentSelectedTile?.index}
-                          </button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {uploadedPhotos.map((photo) => {
+                      const assignedTiles = tiles.filter(t => t.imageUrl === photo.url);
+                      return (
+                        <div
+                          key={photo.id}
+                          className="rounded-xl overflow-hidden border border-slate-800 bg-[#11152a] shadow-md flex flex-col justify-between hover:border-slate-700 transition"
+                        >
+                          <div className="relative aspect-video w-full bg-slate-900 overflow-hidden">
+                            <img 
+                              src={photo.url} 
+                              alt={photo.originalName} 
+                              className="w-full h-full object-cover" 
+                            />
+                            {assignedTiles.length > 0 && (
+                              <span className="absolute top-1.5 left-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-900/90 text-indigo-200 border border-indigo-700/60 shadow">
+                                On #{assignedTiles.map(t => t.index).join(', #')}
+                              </span>
+                            )}
+                            <button
+                              onClick={() => handleDeletePhoto(photo.filename)}
+                              className="absolute top-1.5 right-1.5 p-1 rounded-md bg-black/60 hover:bg-rose-900/90 text-slate-300 hover:text-white transition"
+                              title="Delete photo from server"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          <div className="p-2.5 flex flex-col gap-2">
+                            <span className="text-[11px] text-slate-200 truncate font-semibold block" title={photo.originalName}>
+                              {photo.originalName}
+                            </span>
+
+                            <button
+                              onClick={() => handleAssignPhotoToTile(photo.url)}
+                              className="w-full py-1.5 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm transition active:scale-95 flex items-center justify-center gap-1"
+                            >
+                              <Check className="w-3.5 h-3.5" /> Assign to #{currentSelectedTile?.index} ({currentSelectedTile?.name})
+                            </button>
+
+                            {/* Or assign to other tile */}
+                            <select
+                              defaultValue=""
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  handleAssignPhotoToTile(photo.url, e.target.value);
+                                  e.target.value = '';
+                                }
+                              }}
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-[10px] text-slate-300 focus:outline-none"
+                            >
+                              <option value="" disabled>Assign to another city...</option>
+                              {tiles.map((t) => (
+                                <option key={t.id} value={t.id}>
+                                  #{t.index} {t.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

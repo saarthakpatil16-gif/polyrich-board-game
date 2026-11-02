@@ -125,23 +125,36 @@ export function App() {
     }
   }, []);
 
-  // Polling fallback to guarantee real-time sync in lobby even on mobile or network hiccups
+  // Polling fallback to guarantee real-time sync in lobby and game even on mobile or network hiccups
   useEffect(() => {
-    if (screen !== 'LOBBY' || !gameState?.roomCode) return;
+    if ((screen !== 'LOBBY' && screen !== 'GAME') || !gameState?.roomCode) return;
 
     const interval = setInterval(async () => {
       try {
         const res = await api.getRoom(gameState.roomCode);
         if (res.state) {
-          setGameState(res.state);
-          if (res.state.status === 'PLAYING') {
+          setGameState(prev => {
+            if (
+              !prev ||
+              prev.actionStage !== res.state.actionStage ||
+              prev.activePlayerId !== res.state.activePlayerId ||
+              prev.currentTurnIdx !== res.state.currentTurnIdx ||
+              prev.currentRound !== res.state.currentRound ||
+              prev.status !== res.state.status ||
+              prev.transactions.length !== res.state.transactions.length
+            ) {
+              return res.state;
+            }
+            return prev;
+          });
+          if (res.state.status === 'PLAYING' && screen !== 'GAME') {
             setScreen('GAME');
           }
         }
       } catch (e) {
         // silently ignore transient network blips
       }
-    }, 1500);
+    }, 2000);
 
     return () => clearInterval(interval);
   }, [screen, gameState?.roomCode]);
