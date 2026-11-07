@@ -11,7 +11,9 @@ import {
   Check,
   Skull,
   RotateCcw,
-  Activity
+  Activity,
+  ShieldAlert,
+  Lock
 } from 'lucide-react';
 
 interface CenterPanelProps {
@@ -26,6 +28,7 @@ interface CenterPanelProps {
   isPawnMoving?: boolean;
   onOpenTrade?: () => void;
   onDeclareBankruptcy?: () => void;
+  onPayBail?: () => void;
 }
 
 export const CenterPanel: React.FC<CenterPanelProps> = ({
@@ -39,7 +42,8 @@ export const CenterPanel: React.FC<CenterPanelProps> = ({
   onToggleSound,
   isPawnMoving = false,
   onOpenTrade,
-  onDeclareBankruptcy
+  onDeclareBankruptcy,
+  onPayBail
 }) => {
   const [copied, setCopied] = useState(false);
   const [isRollingAnimation, setIsRollingAnimation] = useState(false);
@@ -166,6 +170,18 @@ export const CenterPanel: React.FC<CenterPanelProps> = ({
           </div>
         )}
 
+        {/* Jail Alert Banner if active player is in jail */}
+        {activePlayer?.inJail && (
+          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-rose-950/70 border border-rose-500/50 text-[9px] sm:text-[10px] text-rose-300 font-bold">
+            <ShieldAlert className="w-3 h-3 text-rose-400 shrink-0" />
+            <span>
+              {isMyTurn 
+                ? `You are in Jail! (${activePlayer.jailTurns || 1} turn${(activePlayer.jailTurns || 1) > 1 ? 's' : ''} left)`
+                : `${activePlayer.name} is in Jail (${activePlayer.jailTurns || 1} turn left)`}
+            </span>
+          </div>
+        )}
+
         {/* Dice Row */}
         <div className="flex items-center justify-center gap-1.5 sm:gap-2">
           {renderDiceFace(animatedDice[0], isRollingAnimation)}
@@ -178,46 +194,72 @@ export const CenterPanel: React.FC<CenterPanelProps> = ({
         {/* Action buttons */}
         <div className="flex items-center justify-center gap-1.5 flex-wrap">
           {state.actionStage === 'AWAITING_ROLL' && (
-            <button
-              onClick={handleRollClick}
-              disabled={!isMyTurn || isRollingAnimation}
-              className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl font-bold text-[10px] sm:text-xs shadow-lg transition-all ${
-                isMyTurn && !isRollingAnimation
-                  ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 text-white scale-105 active:scale-95 cursor-pointer'
-                  : 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-60'
-              }`}
-            >
-              <Dices className={`w-3.5 h-3.5 ${isRollingAnimation ? 'animate-spin' : ''}`} />
-              {isRollingAnimation ? 'Rolling…' : 'Roll Dice'}
-            </button>
+            activePlayer?.inJail ? (
+              <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                <button
+                  onClick={handleRollClick}
+                  disabled={!isMyTurn || isRollingAnimation}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-xl font-bold text-[10px] sm:text-xs shadow-lg transition-all ${
+                    isMyTurn && !isRollingAnimation
+                      ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 text-slate-950 scale-105 active:scale-95 cursor-pointer shadow-gold'
+                      : 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-60'
+                  }`}
+                  title="Roll doubles to escape Jail for free!"
+                >
+                  <Dices className={`w-3.5 h-3.5 ${isRollingAnimation ? 'animate-spin' : ''}`} />
+                  {isRollingAnimation ? 'Rolling…' : 'Roll for Doubles'}
+                </button>
+                {isMyTurn && onPayBail && (
+                  <button
+                    onClick={onPayBail}
+                    disabled={!currentPlayer || currentPlayer.money < 50}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl font-bold text-[9px] sm:text-[10px] bg-emerald-700/60 hover:bg-emerald-600 text-emerald-200 border border-emerald-500/50 transition active:scale-95 disabled:opacity-40"
+                    title="Pay ₹50 bail to be released immediately"
+                  >
+                    <Lock className="w-3 h-3" />
+                    Pay ₹50 Bail
+                  </button>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={handleRollClick}
+                disabled={!isMyTurn || isRollingAnimation}
+                className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl font-bold text-[10px] sm:text-xs shadow-lg transition-all ${
+                  isMyTurn && !isRollingAnimation
+                    ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 text-white scale-105 active:scale-95 cursor-pointer'
+                    : 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-60'
+                }`}
+              >
+                <Dices className={`w-3.5 h-3.5 ${isRollingAnimation ? 'animate-spin' : ''}`} />
+                {isRollingAnimation ? 'Rolling…' : 'Roll Dice'}
+              </button>
+            )
           )}
 
           {state.actionStage === 'AWAITING_BUY_DECISION' && !isPawnMoving && (
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={onBuyProperty}
-                disabled={!isMyTurn}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-xl font-bold text-[10px] sm:text-xs shadow-lg transition ${
-                  isMyTurn 
-                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white active:scale-95' 
-                    : 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                }`}
-              >
-                <ShoppingCart className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                Buy
-              </button>
-              <button
-                onClick={onSkipPurchase}
-                disabled={!isMyTurn}
-                className={`px-3 py-1.5 rounded-xl font-medium text-[10px] sm:text-xs transition ${
-                  isMyTurn
-                    ? 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-                    : 'bg-slate-900 text-slate-600 cursor-not-allowed'
-                }`}
-              >
-                Skip / Auction
-              </button>
-            </div>
+            isMyTurn ? (
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={onBuyProperty}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl font-bold text-[10px] sm:text-xs bg-emerald-600 hover:bg-emerald-500 text-white active:scale-95 shadow-lg"
+                >
+                  <ShoppingCart className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  Buy
+                </button>
+                <button
+                  onClick={onSkipPurchase}
+                  className="px-3 py-1.5 rounded-xl font-medium text-[10px] sm:text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 transition active:scale-95"
+                >
+                  Skip / Auction
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-800/80 border border-slate-700/60 text-[9px] sm:text-[10px] text-slate-300">
+                <ShoppingCart className="w-3 h-3 text-amber-400 shrink-0" />
+                <span>Waiting for <span className="font-bold text-white">{activePlayer?.name}</span> to buy or skip...</span>
+              </div>
+            )
           )}
 
           {state.actionStage === 'AWAITING_END_TURN' && !isPawnMoving && (

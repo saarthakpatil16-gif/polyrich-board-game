@@ -279,28 +279,32 @@ export class GameEngine {
       case 'MOVE_TO': {
         if (tile.destinationIndex !== null && tile.destinationIndex !== undefined) {
           playerDelta.position = tile.destinationIndex;
-          if (tile.destinationIndex === 12) {
+          const isJailDest = tile.destinationIndex === 12 || tile.name.toUpperCase().includes('JAIL');
+          if (isJailDest) {
             playerDelta.inJail = true;
-            playerDelta.jailTurns = 1;
+            playerDelta.jailTurns = 2;
           }
-          transactionDetails = `${player.name} was moved directly to space #${tile.destinationIndex}`;
+          transactionDetails = `${player.name} was arrested and sent directly to Jail!`;
           popup = {
             id: uuidv4(),
             type: 'JAIL',
-            title: tile.name,
-            description: tile.description || `Sent directly to tile #${tile.destinationIndex}`,
+            title: '🚨 Arrested! Go Directly to Jail!',
+            description: `You have been arrested! You must serve 2 turns in detention, roll doubles, or pay ₹50 bail to get released.`,
           };
         }
         break;
       }
 
       case 'JAIL': {
-        transactionDetails = `${player.name} is visiting the detention center.`;
+        // Player landed directly on the Jail tile
+        playerDelta.inJail = true;
+        playerDelta.jailTurns = 1;
+        transactionDetails = `${player.name} stepped into the detention zone and got locked in Jail!`;
         popup = {
           id: uuidv4(),
-          type: 'ANNOUNCEMENT',
-          title: 'Visiting Jail',
-          description: 'Just visiting! No penalty incurred.'
+          type: 'JAIL',
+          title: '🔒 Locked in Jail!',
+          description: 'You entered the detention zone and have been locked up! You must miss your next turn unless you roll doubles or pay ₹50 bail.'
         };
         break;
       }

@@ -36,6 +36,7 @@ interface GamePageProps {
   onUnmortgageProperty: (tileId: string) => void;
   onSellProperty?: (tileId: string) => void;
   onDeclareBankruptcy: () => void;
+  onPayBail?: () => void;
 }
 
 export const GamePage: React.FC<GamePageProps> = ({
@@ -58,6 +59,7 @@ export const GamePage: React.FC<GamePageProps> = ({
   onUnmortgageProperty,
   onSellProperty,
   onDeclareBankruptcy,
+  onPayBail,
 }) => {
   // Selected tile for property deed inspection
   const [inspectedTile, setInspectedTile] = useState<BoardTileDTO | null>(null);
@@ -101,7 +103,11 @@ export const GamePage: React.FC<GamePageProps> = ({
       });
       prevPositionsRef.current = initPositions;
       setDisplayedPositions(initPositions);
-      setVisiblePopup(state.activePopup || null);
+      if (isMyTurn) {
+        setVisiblePopup(state.activePopup || null);
+      } else {
+        setVisiblePopup(null);
+      }
       return;
     }
 
@@ -132,7 +138,8 @@ export const GamePage: React.FC<GamePageProps> = ({
         let currentStep = 0;
         let currentPos = oldPos;
 
-        // Auto-release safety timeout so the game can never get stuck on hopping animation
+        // Auto-release safety timeout scaled to steps (never abruptly cuts off movement)
+        const safetyTimeoutMs = Math.max(2500, steps * 220 + 2000);
         const safetyTimer = setTimeout(() => {
           setIsPawnMoving(false);
           setHoppingPlayerId(null);
@@ -140,9 +147,14 @@ export const GamePage: React.FC<GamePageProps> = ({
             ...prev,
             [activePlayer.id]: targetPos
           }));
-          setVisiblePopup(state.activePopup || null);
-        }, 2500);
+          if (isMyTurn) {
+            setVisiblePopup(state.activePopup || null);
+          }
+        }, safetyTimeoutMs);
 
+        let settleTimer: any = null;
+
+        // Lively 180ms per hop creates a clear, satisfying hopping animation
         const timer = setInterval(() => {
           currentStep++;
           currentPos = (currentPos + 1) % totalTiles;
@@ -156,15 +168,21 @@ export const GamePage: React.FC<GamePageProps> = ({
           if (currentStep >= steps || currentPos === targetPos) {
             clearInterval(timer);
             clearTimeout(safetyTimer);
-            setIsPawnMoving(false);
-            setHoppingPlayerId(null);
-            setVisiblePopup(state.activePopup || null);
+            // 600ms settling pause so the player sees the pawn land comfortably before popup appears
+            settleTimer = setTimeout(() => {
+              setIsPawnMoving(false);
+              setHoppingPlayerId(null);
+              if (isMyTurn) {
+                setVisiblePopup(state.activePopup || null);
+              }
+            }, 600);
           }
-        }, 340);
+        }, 180);
 
         return () => {
           clearInterval(timer);
           clearTimeout(safetyTimer);
+          if (settleTimer) clearTimeout(settleTimer);
           setIsPawnMoving(false);
           setHoppingPlayerId(null);
           // Crucial: ensure displayed position completes to targetPos if component updates mid-hop
@@ -176,12 +194,20 @@ export const GamePage: React.FC<GamePageProps> = ({
       } else {
         setIsPawnMoving(false);
         setHoppingPlayerId(null);
-        setVisiblePopup(state.activePopup || null);
+        if (isMyTurn) {
+          setVisiblePopup(state.activePopup || null);
+        } else {
+          setVisiblePopup(null);
+        }
       }
     } else {
       setIsPawnMoving(false);
       setHoppingPlayerId(null);
-      setVisiblePopup(state.activePopup || null);
+      if (isMyTurn) {
+        setVisiblePopup(state.activePopup || null);
+      } else {
+        setVisiblePopup(null);
+      }
     }
   }, [state.players, state.activePlayerId, state.activePopup, state.boardTiles.length]);
 
@@ -287,6 +313,7 @@ export const GamePage: React.FC<GamePageProps> = ({
             isPawnMoving={isPawnMoving}
             onOpenTrade={() => setIsTradeModalOpen(true)}
             onDeclareBankruptcy={onDeclareBankruptcy}
+            onPayBail={onPayBail}
           />
         </div>
 
@@ -445,12 +472,15 @@ export const GamePage: React.FC<GamePageProps> = ({
       </div>
 
       {/* Event Popup Modal (Landing triggers: Rewards, Punishments, Property Buy, Taxes) */}
-      <EventPopupModal
-        popup={visiblePopup}
-        onAction={handlePopupAction}
-        onClose={onEndTurn}
-        isMyTurn={isMyTurn}
-      />
+      {/* ONLY shown on the screen of the active player whose turn it is! Other players see progress in sideview/activity */}
+      {isMyTurn && visiblePopup && (
+        <EventPopupModal
+          popup={visiblePopup}
+          onAction={handlePopupAction}
+          onClose={onEndTurn}
+          isMyTurn={isMyTurn}
+        />
+      )}
 
       {/* Property Deed Inspection Modal with Mortgage & Development */}
       <PropertyDeedModal

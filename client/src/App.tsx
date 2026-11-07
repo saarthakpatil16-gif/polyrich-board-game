@@ -388,6 +388,16 @@ export function App() {
     });
   };
 
+  const handlePayBail = () => {
+    if (!gameState || !currentPlayer?.sessionId) return;
+    soundFX.playCash();
+    const socket = getSocket();
+    socket.emit('pay_bail', {
+      roomCode: gameState.roomCode,
+      sessionId: currentPlayer.sessionId
+    });
+  };
+
   const handlePlaceBid = (bidAmount: number) => {
     if (!gameState || !currentPlayer?.sessionId) return;
     const socket = getSocket();
@@ -822,6 +832,7 @@ export function App() {
           onUnmortgageProperty={handleUnmortgageProperty}
           onSellProperty={handleSellProperty}
           onDeclareBankruptcy={handleDeclareBankruptcy}
+          onPayBail={handlePayBail}
         />
         {isEditorOpen && currentPlayer?.sessionId && (
           <HostAdminDashboard

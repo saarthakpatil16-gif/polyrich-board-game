@@ -572,11 +572,18 @@ export class RoomManager {
           playerColor: activePlayer.color,
           type: 'JAIL_FREE',
           amount: 0,
-          details: `${activePlayer.name} rolled doubles (${roll.dice1}-${roll.dice2}) and escaped Jail!`
+          details: `${activePlayer.name} rolled doubles (${roll.dice1}-${roll.dice2}) and broke out of Jail!`
         });
+        room.activePopup = {
+          id: uuidv4(),
+          type: 'ANNOUNCEMENT',
+          title: '🎉 Doubles Rolled! Escaped Jail!',
+          description: `You rolled doubles (${roll.dice1} & ${roll.dice2}) and escaped from Jail! You advance ${roll.total} spaces!`
+        };
       } else {
-        activePlayer.jailTurns--;
-        if (activePlayer.jailTurns <= 0) {
+        activePlayer.jailTurns = Math.max(0, (activePlayer.jailTurns || 1) - 1);
+        const freeNext = activePlayer.jailTurns === 0;
+        if (freeNext) {
           activePlayer.inJail = false;
         }
         this.addTransaction(room, {
@@ -586,8 +593,16 @@ export class RoomManager {
           playerColor: activePlayer.color,
           type: 'JAIL_WAIT',
           amount: 0,
-          details: `${activePlayer.name} rolled ${roll.total} and remains in Jail.`
+          details: `${activePlayer.name} rolled ${roll.dice1}+${roll.dice2} (no doubles) and remains in Jail.`
         });
+        room.activePopup = {
+          id: uuidv4(),
+          type: 'JAIL',
+          title: freeNext ? 'Detention Sentence Complete' : '🔒 Turn Missed (In Jail)',
+          description: freeNext
+            ? `You rolled ${roll.dice1} + ${roll.dice2} = ${roll.total} (no doubles). Your sentence is finished, and you are free to move next turn!`
+            : `You rolled ${roll.dice1} + ${roll.dice2} = ${roll.total} (no doubles). You must miss this turn and remain locked in Jail (${activePlayer.jailTurns} turn left)!`
+        };
         room.actionStage = 'AWAITING_END_TURN';
         return room;
       }
@@ -728,6 +743,43 @@ export class RoomManager {
       room.actionStage = 'AWAITING_END_TURN';
     }
 
+    return room;
+  }
+
+  /**
+   * Pay bail to immediately escape Jail and proceed to roll dice
+   */
+  public payBail(code: string, sessionId: string): RoomInstance {
+    const room = this.rooms.get(code.toUpperCase());
+    if (!room) throw new Error('Room not found');
+    const player = room.players[room.currentTurnIdx];
+    if (!player || player.sessionId !== sessionId) throw new Error('Not your turn.');
+    if (!player.inJail) throw new Error('You are not in jail.');
+    if (room.actionStage !== 'AWAITING_ROLL') throw new Error('Cannot pay bail right now.');
+
+    const bailAmount = 50;
+    player.money = Math.max(0, (player.money || 0) - bailAmount);
+    player.inJail = false;
+    player.jailTurns = 0;
+
+    this.addTransaction(room, {
+      round: room.currentRound,
+      playerId: player.id,
+      playerName: player.name,
+      playerColor: player.color,
+      type: 'PAY_BAIL',
+      amount: -bailAmount,
+      details: `${player.name} paid ₹${bailAmount} bail and was released from Jail!`
+    });
+
+    room.activePopup = {
+      id: uuidv4(),
+      type: 'ANNOUNCEMENT',
+      title: '🔓 Released from Jail!',
+      description: `You paid ₹${bailAmount} bail and are released from detention! Roll the dice to move.`
+    };
+
+    this.updateStats(room);
     return room;
   }
 

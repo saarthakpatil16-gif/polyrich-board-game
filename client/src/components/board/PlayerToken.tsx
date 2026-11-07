@@ -37,7 +37,7 @@ export const PlayerToken: React.FC<PlayerTokenProps> = ({
         ['--pawn-x' as any]: `${offsetX}px`,
         ['--pawn-y' as any]: `${offsetY}px`,
       }}
-      title={`${player.name} ($${player.money})`}
+      title={`${player.name} (₹${player.money})${player.inJail ? ' [IN JAIL]' : ''}`}
     >
       <div 
         className={`relative transition-transform ${
@@ -50,6 +50,11 @@ export const PlayerToken: React.FC<PlayerTokenProps> = ({
           size="sm" 
           defaultIndex={player.orderIndex} 
         />
+        {player.inJail && (
+          <div className="absolute -top-1.5 -right-1.5 bg-rose-950 text-amber-300 text-[8px] font-black rounded-full px-1 border border-amber-500/80 shadow-md">
+            🔒
+          </div>
+        )}
       </div>
     </div>
   );

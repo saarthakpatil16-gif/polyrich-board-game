@@ -18,6 +18,7 @@ interface BoardGridProps {
   isPawnMoving: boolean;
   onOpenTrade?: () => void;
   onDeclareBankruptcy?: () => void;
+  onPayBail?: () => void;
 }
 
 export const BoardGrid: React.FC<BoardGridProps> = ({
@@ -34,7 +35,8 @@ export const BoardGrid: React.FC<BoardGridProps> = ({
   hoppingPlayerId,
   isPawnMoving,
   onOpenTrade,
-  onDeclareBankruptcy
+  onDeclareBankruptcy,
+  onPayBail
 }) => {
   const { boardTiles, players, activePlayerId } = state;
   const totalTiles = boardTiles.length;
@@ -149,6 +151,7 @@ export const BoardGrid: React.FC<BoardGridProps> = ({
             isPawnMoving={isPawnMoving}
             onOpenTrade={onOpenTrade}
             onDeclareBankruptcy={onDeclareBankruptcy}
+            onPayBail={onPayBail}
           />
         </div>
       </div>

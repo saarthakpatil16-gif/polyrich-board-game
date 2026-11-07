@@ -194,6 +194,18 @@ export function setupGameSockets(io: Server) {
     });
 
     /**
+     * Pay Bail to Escape Jail
+     */
+    socket.on('pay_bail', (data: { roomCode: string; sessionId: string }) => {
+      try {
+        const room = roomManager.payBail(data.roomCode, data.sessionId);
+        io.to(data.roomCode.toUpperCase()).emit('game_state_updated', roomManager.getPublicState(room));
+      } catch (err: any) {
+        socket.emit('error_message', { message: err.message });
+      }
+    });
+
+    /**
      * Skip Property Purchase (Launches Live Auction)
      */
     socket.on('skip_purchase', (data: { roomCode: string; sessionId: string }) => {
