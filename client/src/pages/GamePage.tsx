@@ -105,12 +105,23 @@ export const GamePage: React.FC<GamePageProps> = ({
       return;
     }
 
+    // Keep non-active players synced immediately (e.g. if jailed or teleported)
+    state.players.forEach(p => {
+      if (p.id !== activePlayer?.id) {
+        prevPositionsRef.current[p.id] = p.position;
+        setDisplayedPositions(prev => (prev[p.id] === p.position ? prev : { ...prev, [p.id]: p.position }));
+      }
+    });
+
     // Check if active player moved
     if (activePlayer) {
       const oldPos = prevPositionsRef.current[activePlayer.id] ?? activePlayer.position;
       const targetPos = activePlayer.position;
 
       if (oldPos !== targetPos) {
+        // Immediately record targetPos so subsequent re-renders or pollings never re-trigger this hopping loop!
+        prevPositionsRef.current[activePlayer.id] = targetPos;
+
         let steps = (targetPos - oldPos + totalTiles) % totalTiles;
         if (steps === 0 && targetPos !== oldPos) steps = totalTiles;
 
@@ -125,7 +136,10 @@ export const GamePage: React.FC<GamePageProps> = ({
         const safetyTimer = setTimeout(() => {
           setIsPawnMoving(false);
           setHoppingPlayerId(null);
-          prevPositionsRef.current[activePlayer.id] = targetPos;
+          setDisplayedPositions(prev => ({
+            ...prev,
+            [activePlayer.id]: targetPos
+          }));
           setVisiblePopup(state.activePopup || null);
         }, 2500);
 
@@ -142,7 +156,6 @@ export const GamePage: React.FC<GamePageProps> = ({
           if (currentStep >= steps || currentPos === targetPos) {
             clearInterval(timer);
             clearTimeout(safetyTimer);
-            prevPositionsRef.current[activePlayer.id] = targetPos;
             setIsPawnMoving(false);
             setHoppingPlayerId(null);
             setVisiblePopup(state.activePopup || null);
@@ -154,6 +167,11 @@ export const GamePage: React.FC<GamePageProps> = ({
           clearTimeout(safetyTimer);
           setIsPawnMoving(false);
           setHoppingPlayerId(null);
+          // Crucial: ensure displayed position completes to targetPos if component updates mid-hop
+          setDisplayedPositions(prev => ({
+            ...prev,
+            [activePlayer.id]: targetPos
+          }));
         };
       } else {
         setIsPawnMoving(false);
@@ -292,8 +310,7 @@ export const GamePage: React.FC<GamePageProps> = ({
               {/* Cash display */}
               {me && (
                 <span className="flex items-center gap-0.5 text-[9px] sm:text-[10px] text-emerald-400 font-bold ml-1">
-                  <DollarSign className="w-2.5 h-2.5" />
-                  {me.money}
+                  ₹{me.money}
                 </span>
               )}
             </div>
@@ -358,10 +375,10 @@ export const GamePage: React.FC<GamePageProps> = ({
                           <span className="text-[9px] sm:text-[10px] font-bold text-slate-200 truncate">{tile.name}</span>
                           <div className="flex items-center justify-between text-[8px] sm:text-[9px] text-slate-400">
                             <span>{tile.isMortgaged ? '🔒 Mortgaged' : upgradeLevel > 0 ? upgradeLabels[upgradeLevel] : 'No dev'}</span>
-                            <span className="text-emerald-400 font-bold">${tile.baseRent}</span>
+                            <span className="text-emerald-400 font-bold">₹{tile.baseRent}</span>
                           </div>
                           {!tile.isMortgaged && upgradeLevel > 0 && (
-                            <span className="text-[7px] sm:text-[8px] text-amber-400">Rent: ${
+                            <span className="text-[7px] sm:text-[8px] text-amber-400">Rent: ₹{
                               upgradeLevel === 1 ? tile.rentLevel1 : upgradeLevel === 2 ? tile.rentLevel2 : tile.rentLevel3
                             }</span>
                           )}
@@ -373,17 +390,17 @@ export const GamePage: React.FC<GamePageProps> = ({
                             <button
                               onClick={(e: React.MouseEvent) => { e.stopPropagation(); onUpgradeProperty(tile.id); }}
                               className="flex-1 flex items-center justify-center gap-0.5 py-1 rounded-lg text-[8px] sm:text-[9px] font-bold bg-amber-600/30 hover:bg-amber-600/60 text-amber-300 border border-amber-600/40 transition active:scale-95"
-                              title={`Upgrade for $${tile.upgradeCost}`}
+                              title={`Upgrade for ₹${tile.upgradeCost}`}
                             >
                               <ArrowUpCircle className="w-2.5 h-2.5 shrink-0" />
-                              Dev ${tile.upgradeCost}
+                              Dev ₹{tile.upgradeCost}
                             </button>
                           )}
                           {canMortgage && (
                             <button
                               onClick={(e: React.MouseEvent) => { e.stopPropagation(); onMortgageProperty(tile.id); }}
                               className="flex-1 flex items-center justify-center gap-0.5 py-1 rounded-lg text-[8px] sm:text-[9px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600/40 transition active:scale-95"
-                              title={`Mortgage for $${Math.round(tile.price * 0.5)}`}
+                              title={`Mortgage for ₹${Math.round(tile.price * 0.5)}`}
                             >
                               <Lock className="w-2.5 h-2.5 shrink-0" />
                               Mtg
@@ -393,7 +410,7 @@ export const GamePage: React.FC<GamePageProps> = ({
                             <button
                               onClick={(e: React.MouseEvent) => { e.stopPropagation(); onUnmortgageProperty(tile.id); }}
                               className="flex-1 flex items-center justify-center gap-0.5 py-1 rounded-lg text-[8px] sm:text-[9px] font-bold bg-emerald-700/40 hover:bg-emerald-700/70 text-emerald-300 border border-emerald-600/40 transition active:scale-95"
-                              title={`Unmortgage for $${unmortgageCost}`}
+                              title={`Unmortgage for ₹${unmortgageCost}`}
                             >
                               <Unlock className="w-2.5 h-2.5 shrink-0" />
                               Unmtg
@@ -403,9 +420,9 @@ export const GamePage: React.FC<GamePageProps> = ({
                             <button
                               onClick={(e: React.MouseEvent) => { e.stopPropagation(); onSellProperty(tile.id); }}
                               className="flex-1 flex items-center justify-center py-1 rounded-lg text-[8px] font-bold bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/40 transition active:scale-95"
-                              title={`Sell back to bank for +$${sellCash} cash`}
+                              title={`Sell back to bank for +₹${sellCash} cash`}
                             >
-                              Sell +${sellCash}
+                              Sell +₹{sellCash}
                             </button>
                           )}
                           {!canUpgrade && !canMortgage && !canUnmortgage && !canSell && (

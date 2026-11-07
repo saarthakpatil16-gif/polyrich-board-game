@@ -100,7 +100,7 @@ export const TradeModal: React.FC<TradeModalProps> = ({
           <div className="grid grid-cols-2 gap-2 text-left text-[10px] bg-[#0b0e1f] p-2.5 rounded-xl border border-slate-800">
             <div>
               <span className="font-bold text-emerald-400 block mb-0.5">THEY OFFER:</span>
-              <p className="font-bold text-white">${activeTrade.offeredMoney} Cash</p>
+              <p className="font-bold text-white">₹{activeTrade.offeredMoney} Cash</p>
               {offeredTiles.length > 0 ? (
                 <ul className="text-slate-300 space-y-0.5 truncate">
                   {offeredTiles.map(t => <li key={t.id} className="truncate">• {t.name}</li>)}
@@ -112,7 +112,7 @@ export const TradeModal: React.FC<TradeModalProps> = ({
 
             <div>
               <span className="font-bold text-rose-400 block mb-0.5">THEY WANT:</span>
-              <p className="font-bold text-white">${activeTrade.requestedMoney} Cash</p>
+              <p className="font-bold text-white">₹{activeTrade.requestedMoney} Cash</p>
               {requestedTiles.length > 0 ? (
                 <ul className="text-slate-300 space-y-0.5 truncate">
                   {requestedTiles.map(t => <li key={t.id} className="truncate">• {t.name}</li>)}
@@ -222,7 +222,7 @@ export const TradeModal: React.FC<TradeModalProps> = ({
               <div>
                 <label className="text-[11px] text-slate-400 flex justify-between mb-1">
                   <span>Cash:</span>
-                  <span className="font-bold text-emerald-400">${offeredCash} / ${currentPlayer.money}</span>
+                  <span className="font-bold text-emerald-400">₹{offeredCash} / ₹{currentPlayer.money}</span>
                 </label>
                 <input
                   type="range"
@@ -260,7 +260,7 @@ export const TradeModal: React.FC<TradeModalProps> = ({
                           />
                           <span>{t.name}</span>
                         </div>
-                        <span className="font-bold text-slate-400">${t.price}</span>
+                        <span className="font-bold text-slate-400">₹{t.price}</span>
                       </label>
                     ))}
                   </div>
@@ -278,7 +278,7 @@ export const TradeModal: React.FC<TradeModalProps> = ({
               <div>
                 <label className="text-[11px] text-slate-400 flex justify-between mb-1">
                   <span>Cash:</span>
-                  <span className="font-bold text-rose-400">${requestedCash} / ${partner?.money || 0}</span>
+                  <span className="font-bold text-rose-400">₹{requestedCash} / ₹{partner?.money || 0}</span>
                 </label>
                 <input
                   type="range"
@@ -316,7 +316,7 @@ export const TradeModal: React.FC<TradeModalProps> = ({
                           />
                           <span>{t.name}</span>
                         </div>
-                        <span className="font-bold text-slate-400">${t.price}</span>
+                        <span className="font-bold text-slate-400">₹{t.price}</span>
                       </label>
                     ))}
                   </div>

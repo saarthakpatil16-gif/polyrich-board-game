@@ -98,7 +98,7 @@ export const WinnerModal: React.FC<WinnerModalProps> = ({
               </div>
 
               <div className="text-right">
-                <span className="font-bold text-emerald-400">${p.netWorth}</span>
+                <span className="font-bold text-emerald-400">₹{p.netWorth}</span>
                 <span className="text-[10px] text-slate-500 block">{p.propertyCount} properties</span>
               </div>
             </div>

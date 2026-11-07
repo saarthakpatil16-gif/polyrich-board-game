@@ -267,7 +267,7 @@ export const LobbyPage: React.FC<LobbyPageProps> = ({
                 )}
               </span>
               <span className="text-[11px] text-slate-400">
-                Expanded Perimeter (12 per side) • Starting Cash: ${state.rules.startingCash} • Pass Start: +${state.rules.passStartBonus}
+                Expanded Perimeter (12 per side) • Starting Cash: ₹{state.rules.startingCash} • Pass Start: +₹{state.rules.passStartBonus}
               </span>
             </div>
           </div>

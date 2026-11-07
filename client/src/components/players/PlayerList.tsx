@@ -60,7 +60,7 @@ export const PlayerList: React.FC<PlayerListProps> = ({
 
                 <div className="flex items-center gap-2 text-[9px] sm:text-[10px]">
                   <span className={`font-black ${player.money < 100 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                    ${player.money}
+                    ₹{player.money}
                   </span>
                   <span className="text-slate-400">
                     Pos #{player.position}

@@ -102,7 +102,7 @@ export const TileView: React.FC<TileViewProps> = ({
         />
       )}
 
-      {/* ── Zone 2: Icon / Image — expanded to maximize visibility ── */}
+      {/* ── Zone 2: Icon / Image — maximized to occupy the vast majority of the tile ── */}
       <div className="relative flex-1 w-full overflow-hidden flex items-center justify-center min-h-0 p-0">
         {tile.imageUrl ? (
           <img
@@ -115,74 +115,79 @@ export const TileView: React.FC<TileViewProps> = ({
         ) : (
           /* Icon enlarged to fill available area with drop shadow */
           <div className="w-full h-full flex items-center justify-center p-0.5">
-            <div className="w-full h-full flex items-center justify-center scale-110 drop-shadow-sm">
+            <div className="w-full h-full flex items-center justify-center scale-125 drop-shadow-sm">
               {iconNode}
             </div>
           </div>
         )}
+
+        {/* ── Sleek Floating Price / Status Badge (INR Currency) ── */}
+        {tile.type === 'PROPERTY' && !tile.isMortgaged && (
+          <div
+            className="absolute top-0.5 left-0.5 z-10 px-0.5 py-px rounded-[2px] bg-black/80 backdrop-blur-[1px] border border-emerald-500/50 flex items-center leading-none shadow-sm"
+          >
+            <span style={{ fontSize: 4.4, color: '#6ee7b7', fontWeight: 800 }}>
+              ₹{tile.price}
+            </span>
+          </div>
+        )}
+        {tile.type === 'START' && (
+          <div
+            className="absolute top-0.5 left-0.5 z-10 px-0.5 py-px rounded-[2px] bg-black/80 backdrop-blur-[1px] border border-emerald-500/50 flex items-center leading-none shadow-sm"
+          >
+            <span style={{ fontSize: 4.2, color: '#6ee7b7', fontWeight: 800 }}>+₹200</span>
+          </div>
+        )}
+        {tile.type === 'TAX' && (
+          <div
+            className="absolute top-0.5 left-0.5 z-10 px-0.5 py-px rounded-[2px] bg-black/80 backdrop-blur-[1px] border border-rose-500/50 flex items-center leading-none shadow-sm"
+          >
+            <span style={{ fontSize: 4.2, color: '#f87171', fontWeight: 800 }}>
+              -₹{tile.price ?? 100}
+            </span>
+          </div>
+        )}
+        {tile.isMortgaged && (
+          <div
+            className="absolute top-0.5 left-0.5 z-10 px-0.5 py-px rounded-[2px] bg-black/90 border border-rose-500/60 flex items-center gap-px leading-none shadow-sm"
+          >
+            <Lock style={{ width: 3.5, height: 3.5, color: '#f87171' }} />
+            <span style={{ fontSize: 3.8, color: '#f87171', fontWeight: 800 }}>MTG</span>
+          </div>
+        )}
+
+        {/* ── Owner dot & development tier floating top-right ── */}
+        {owner && !tile.isMortgaged && (
+          <div className="absolute top-0.5 right-0.5 z-10 flex items-center gap-0.5 bg-black/75 px-0.5 py-px rounded-[2px] border border-white/20">
+            <div
+              className="rounded-full border border-white/60"
+              style={{ backgroundColor: owner.color, width: 4.5, height: 4.5 }}
+              title={owner.name}
+            />
+            {upgradeLevel > 0 && (
+              <span style={{ fontSize: 3.8, color: '#fbbf24', fontWeight: 800 }}>
+                {upgradeLevel >= 3 ? 'HTL' : `T${upgradeLevel}`}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* ── Zone 3: Name (compact height, clean thin font) ── */}
+      {/* ── Zone 3: Compact Name Bar (minimal height so image gets maximum space) ── */}
       <div
-        className="w-full shrink-0 flex items-center justify-center px-0.5"
-        style={{ height: 8 }}
+        className="w-full shrink-0 flex items-center justify-center px-0.5 bg-[#0e1224]/95 border-t border-slate-800/80"
+        style={{ height: 6.5 }}
       >
         <span
           className={[
-            'w-full text-center truncate leading-none font-medium',
-            isCorner
-              ? 'text-amber-300'
-              : 'text-slate-200',
+            'w-full text-center truncate leading-none font-bold',
+            isCorner ? 'text-amber-300' : 'text-slate-100',
           ].join(' ')}
-          style={{ fontSize: isCorner ? 5.2 : 4.4 }}
+          style={{ fontSize: isCorner ? 5.2 : 4.5 }}
           title={tile.name}
         >
           {tile.name}
         </span>
-      </div>
-
-      {/* ── Zone 4: Info bar (price / owner dot / houses) — compact 8px ── */}
-      <div
-        className="w-full shrink-0 flex flex-col items-center justify-center px-0.5 gap-px"
-        style={{ height: 8 }}
-      >
-        {/* Price */}
-        {tile.type === 'PROPERTY' && !tile.isMortgaged && (
-          <span style={{ fontSize: 4.5, color: '#6ee7b7', lineHeight: 1, fontWeight: 700 }}>
-            ${tile.price}
-          </span>
-        )}
-        {tile.type === 'START' && (
-          <span style={{ fontSize: 4.2, color: '#6ee7b7', lineHeight: 1, fontWeight: 600 }}>+$200</span>
-        )}
-        {tile.type === 'TAX' && (
-          <span style={{ fontSize: 4.2, color: '#f87171', lineHeight: 1, fontWeight: 600 }}>
-            -{tile.price ?? 100}
-          </span>
-        )}
-
-        {/* Mortgaged */}
-        {tile.isMortgaged && (
-          <div className="flex items-center gap-px" style={{ color: '#f87171', fontSize: 3.8 }}>
-            <Lock style={{ width: 4, height: 4 }} />MTG
-          </div>
-        )}
-
-        {/* Owner dot */}
-        {owner && !tile.isMortgaged && (
-          <div className="flex items-center gap-0.5">
-            <div
-              className="rounded-full border border-white/50"
-              style={{ backgroundColor: owner.color, width: 4.5, height: 4.5 }}
-              title={owner.name}
-            />
-          </div>
-        )}
-
-        {/* Houses / Hotel */}
-        {owner && !tile.isMortgaged && upgradeLevel > 0 && (
-          <HousesDisplay level={upgradeLevel} groupColor={tile.colorGroup} />
-        )}
       </div>
 
       {/* ── Player tokens (absolute overlay, always on top) ── */}

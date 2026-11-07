@@ -612,7 +612,7 @@ export class RoomManager {
         playerColor: activePlayer.color,
         type: 'PASS_START',
         amount: bonusAmount,
-        details: `${activePlayer.name} passed START and collected $${bonusAmount}`
+        details: `${activePlayer.name} passed START and collected ₹${bonusAmount}`
       });
     }
 
@@ -673,7 +673,7 @@ export class RoomManager {
     if (!tile || tile.type !== 'PROPERTY' || tile.ownerId) throw new Error('Property not available for purchase.');
 
     if (player.money < tile.price) {
-      throw new Error(`Insufficient funds ($${player.money}) to buy ${tile.name} ($${tile.price}).`);
+      throw new Error(`Insufficient funds (₹${player.money}) to buy ${tile.name} (₹${tile.price}).`);
     }
 
     player.money -= tile.price;
@@ -692,7 +692,7 @@ export class RoomManager {
       playerColor: player.color,
       type: 'BUY_PROPERTY',
       amount: -tile.price,
-      details: `${player.name} bought ${tile.name} for $${tile.price}`
+      details: `${player.name} bought ${tile.name} for ₹${tile.price}`
     });
 
     this.updateStats(room);
@@ -757,7 +757,7 @@ export class RoomManager {
       round: room.currentRound,
       type: 'AUCTION_START',
       amount: startBid,
-      details: `Auction started for ${tile.name}! Opening bid: $${startBid}. Bidding is open to all players!`
+      details: `Auction started for ${tile.name}! Opening bid: ₹${startBid}. Bidding is open to all players!`
     });
   }
 
@@ -772,8 +772,8 @@ export class RoomManager {
     const player = room.players.find(p => p.sessionId === sessionId);
     if (!player) throw new Error('Player not found');
     if (player.isBankrupt) throw new Error('Bankrupt players cannot bid');
-    if (player.money < bidAmount) throw new Error(`You only have $${player.money}. Bid of $${bidAmount} is too high.`);
-    if (bidAmount <= room.activeAuction.currentBid) throw new Error(`Bid must exceed current bid of $${room.activeAuction.currentBid}`);
+    if (player.money < bidAmount) throw new Error(`You only have ₹${player.money}. Bid of ₹${bidAmount} is too high.`);
+    if (bidAmount <= room.activeAuction.currentBid) throw new Error(`Bid must exceed current bid of ₹${room.activeAuction.currentBid}`);
 
     room.activeAuction.currentBid = bidAmount;
     room.activeAuction.highestBidderId = player.id;
@@ -790,7 +790,7 @@ export class RoomManager {
       playerColor: player.color,
       type: 'AUCTION_BID',
       amount: bidAmount,
-      details: `${player.name} bid $${bidAmount} for ${room.activeAuction.tileName}`
+      details: `${player.name} bid ₹${bidAmount} for ${room.activeAuction.tileName}`
     });
 
     return room;
@@ -822,7 +822,7 @@ export class RoomManager {
           playerColor: winner.color,
           type: 'AUCTION_WON',
           amount: -auction.currentBid,
-          details: `${winner.name} won the auction for ${tile.name} for $${auction.currentBid}!`
+          details: `${winner.name} won the auction for ${tile.name} for ₹${auction.currentBid}!`
         });
       }
     } else {
@@ -862,8 +862,8 @@ export class RoomManager {
     if (fromPlayer.id === toPlayer.id) throw new Error('Cannot trade with yourself');
     if (fromPlayer.isBankrupt || toPlayer.isBankrupt) throw new Error('Bankrupt players cannot trade');
 
-    if (fromPlayer.money < offeredMoney) throw new Error(`You only have $${fromPlayer.money}`);
-    if (toPlayer.money < requestedMoney) throw new Error(`${toPlayer.name} only has $${toPlayer.money}`);
+    if (fromPlayer.money < offeredMoney) throw new Error(`You only have ₹${fromPlayer.money}`);
+    if (toPlayer.money < requestedMoney) throw new Error(`${toPlayer.name} only has ₹${toPlayer.money}`);
 
     // Verify ownership
     for (const tId of offeredTileIds) {
@@ -1002,7 +1002,7 @@ export class RoomManager {
       playerColor: player.color,
       type: 'MORTGAGE',
       amount: cashGained,
-      details: `${player.name} mortgaged ${tile.name} to the bank and received $${cashGained}`
+      details: `${player.name} mortgaged ${tile.name} to the bank and received ₹${cashGained}`
     });
 
     this.updateStats(room);
@@ -1024,7 +1024,7 @@ export class RoomManager {
     if (!tile.isMortgaged) throw new Error('Property is not mortgaged');
 
     const cost = Math.round(tile.price * 0.55); // 50% + 10% fee
-    if (player.money < cost) throw new Error(`Insufficient funds ($${cost}) to unmortgage`);
+    if (player.money < cost) throw new Error(`Insufficient funds (₹${cost}) to unmortgage`);
 
     player.money -= cost;
     tile.isMortgaged = false;
@@ -1036,7 +1036,7 @@ export class RoomManager {
       playerColor: player.color,
       type: 'UNMORTGAGE',
       amount: -cost,
-      details: `${player.name} unmortgaged ${tile.name} for $${cost}`
+      details: `${player.name} unmortgaged ${tile.name} for ₹${cost}`
     });
 
     this.updateStats(room);
@@ -1071,7 +1071,7 @@ export class RoomManager {
         playerColor: player.color,
         type: 'SELL_UPGRADE',
         amount: refund,
-        details: `${player.name} sold an upgrade tier on ${tile.name} and collected $${refund} cash!`
+        details: `${player.name} sold an upgrade tier on ${tile.name} and collected ₹${refund} cash!`
       });
 
       this.updateStats(room);
@@ -1094,7 +1094,7 @@ export class RoomManager {
       playerColor: player.color,
       type: 'SELL_PROPERTY',
       amount: refund,
-      details: `${player.name} sold ${tile.name} back to the bank and collected $${refund} cash!`
+      details: `${player.name} sold ${tile.name} back to the bank and collected ₹${refund} cash!`
     });
 
     this.updateStats(room);
@@ -1184,7 +1184,7 @@ export class RoomManager {
       playerColor: player.color,
       type: 'UPGRADE_PROPERTY',
       amount: -cost,
-      details: `${player.name} developed ${tile.name} to Tier ${tile.upgradeLevel} for $${cost}`
+      details: `${player.name} developed ${tile.name} to Tier ${tile.upgradeLevel} for ₹${cost}`
     });
 
     this.updateStats(room);
@@ -1272,7 +1272,7 @@ export class RoomManager {
         playerColor: winningPlayer.color,
         type: 'VICTORY',
         amount: 0,
-        details: `Max rounds (${room.rules.maxRounds}) reached! ${winningPlayer.name} wins with net worth $${maxWorth}!`
+        details: `Max rounds (${room.rules.maxRounds}) reached! ${winningPlayer.name} wins with net worth ₹${maxWorth}!`
       });
     }
   }

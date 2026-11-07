@@ -89,10 +89,10 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
       <div className="grid grid-cols-3 gap-1 pt-2 border-t border-slate-800/60 text-center">
         <div>
           <span className="text-[10px] text-slate-400 flex items-center justify-center gap-0.5">
-            <DollarSign className="w-2.5 h-2.5 text-emerald-400" /> Cash
+            Cash
           </span>
           <span className={`text-xs font-bold ${player.money < 100 ? 'text-rose-400' : 'text-emerald-400'}`}>
-            ${player.money}
+            ₹{player.money}
           </span>
         </div>
 
@@ -110,7 +110,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
             <TrendingUp className="w-2.5 h-2.5 text-amber-400" /> Worth
           </span>
           <span className="text-xs font-bold text-amber-300">
-            ${player.netWorth}
+            ₹{player.netWorth}
           </span>
         </div>
       </div>

@@ -126,12 +126,12 @@ export class GameEngine {
         txType = 'START_BONUS';
         txAmount = Number(rules.passStartBonus || 200);
         playerDelta.money = Number(player.money || 0) + txAmount;
-        transactionDetails = `${player.name} landed directly on START and collected $${txAmount}`;
+        transactionDetails = `${player.name} landed directly on START and collected ₹${txAmount}`;
         popup = {
           id: uuidv4(),
           type: 'ANNOUNCEMENT',
           title: 'Direct Landing on START!',
-          description: `You collected your salary of $${txAmount}!`,
+          description: `You collected your salary of ₹${txAmount}!`,
           amount: txAmount
         };
         break;
@@ -141,16 +141,16 @@ export class GameEngine {
         if (!tile.ownerId) {
           if (tile.canBuy && Number(player.money || 0) >= Number(tile.price)) {
             stage = 'AWAITING_BUY_DECISION';
-            transactionDetails = `${player.name} landed on unowned property ${tile.name} (Price: $${tile.price})`;
+            transactionDetails = `${player.name} landed on unowned property ${tile.name} (Price: ₹${tile.price})`;
             popup = {
               id: uuidv4(),
               type: 'PROPERTY',
               title: tile.name,
-              description: `This property is unowned. Would you like to buy it for $${tile.price}?`,
+              description: `This property is unowned. Would you like to buy it for ₹${tile.price}?`,
               amount: tile.price,
               imageUrl: tile.imageUrl,
               options: [
-                { label: `Buy for $${tile.price}`, action: 'BUY' },
+                { label: `Buy for ₹${tile.price}`, action: 'BUY' },
                 { label: 'Pass / Skip', action: 'SKIP' }
               ]
             };
@@ -160,7 +160,7 @@ export class GameEngine {
         } else if (tile.ownerId === player.id) {
           // Self-owned property
           if (tile.upgradeCost > 0 && Number(player.money || 0) >= tile.upgradeCost && (tile.upgradeLevel || 0) < 3) {
-            transactionDetails = `${player.name} visited their own property ${tile.name}. Can upgrade for $${tile.upgradeCost}.`;
+            transactionDetails = `${player.name} visited their own property ${tile.name}. Can upgrade for ₹${tile.upgradeCost}.`;
           } else {
             transactionDetails = `${player.name} visited their own property ${tile.name}.`;
           }
@@ -174,13 +174,13 @@ export class GameEngine {
             const deduction = Math.min(Number(player.money || 0), rent);
             playerDelta.money = Math.max(0, Number(player.money || 0) - deduction);
             otherPlayersDelta.push({ id: owner.id, deltaMoney: deduction });
-            transactionDetails = `${player.name} paid $${deduction} rent to ${owner.name} for ${tile.name}`;
+            transactionDetails = `${player.name} paid ₹${deduction} rent to ${owner.name} for ${tile.name}`;
             
             popup = {
               id: uuidv4(),
               type: 'RENT',
               title: 'Rent Due!',
-              description: `You landed on ${tile.name} owned by ${owner.name}. Paid $${deduction} rent!`,
+              description: `You landed on ${tile.name} owned by ${owner.name}. Paid ₹${deduction} rent!`,
               amount: -deduction,
               imageUrl: tile.imageUrl
             };
@@ -199,12 +199,12 @@ export class GameEngine {
         txType = 'TAX';
         txAmount = taxAmount;
         playerDelta.money = Math.max(0, Number(player.money || 0) - taxAmount);
-        transactionDetails = `${player.name} paid $${taxAmount} in city taxes at ${tile.name}`;
+        transactionDetails = `${player.name} paid ₹${taxAmount} in city taxes at ${tile.name}`;
         popup = {
           id: uuidv4(),
           type: 'PUNISHMENT',
           title: 'Tax Assessment',
-          description: `You paid $${taxAmount} city fee at ${tile.name}.`,
+          description: `You paid ₹${taxAmount} city fee at ${tile.name}.`,
           amount: -taxAmount
         };
         if (Number(player.money || 0) < taxAmount && !rules.allowNegativeBalance) {
@@ -225,7 +225,7 @@ export class GameEngine {
           if (reward.bonusTurn) extraTurn = true;
           if (reward.movementSpaces !== 0) secondaryMovement = reward.movementSpaces;
 
-          transactionDetails = `${player.name} received reward: ${reward.name} (+$${gain})`;
+          transactionDetails = `${player.name} received reward: ${reward.name} (+₹${gain})`;
           popup = {
             id: uuidv4(),
             type: 'REWARD',
@@ -259,7 +259,7 @@ export class GameEngine {
             }
           }
 
-          transactionDetails = `${player.name} suffered punishment: ${punishment.name} (-$${loss})`;
+          transactionDetails = `${player.name} suffered punishment: ${punishment.name} (-₹${loss})`;
           popup = {
             id: uuidv4(),
             type: 'PUNISHMENT',

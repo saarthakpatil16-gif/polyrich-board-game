@@ -63,7 +63,7 @@ export const EventPopupModal: React.FC<EventPopupModalProps> = ({
           <div className={`text-base font-extrabold px-3 py-0.5 rounded-full mb-2 ${
             popup.amount > 0 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
           }`}>
-            {popup.amount > 0 ? `+$${popup.amount}` : `-$${Math.abs(popup.amount)}`}
+            {popup.amount > 0 ? `+₹${popup.amount}` : `-₹${Math.abs(popup.amount)}`}
           </div>
         )}
 

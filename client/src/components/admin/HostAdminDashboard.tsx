@@ -475,7 +475,7 @@ export const HostAdminDashboard: React.FC<HostAdminDashboardProps> = ({
                             {tile.name}
                           </span>
                           <span className="text-[10px] text-slate-400 truncate">
-                            {tile.type} {tile.price > 0 ? `• $${tile.price}` : ''}
+                            {tile.type} {tile.price > 0 ? `• ₹${tile.price}` : ''}
                           </span>
                         </div>
                       </div>
@@ -747,7 +747,7 @@ export const HostAdminDashboard: React.FC<HostAdminDashboardProps> = ({
                   >
                     {tiles.map((t) => (
                       <option key={t.id} value={t.id}>
-                        #{t.index} — {t.name} ({t.type === 'PROPERTY' ? `${t.district || 'City'} • $${t.price}` : t.type}) {t.imageUrl ? '✓ Has Image' : ''}
+                        #{t.index} — {t.name} ({t.type === 'PROPERTY' ? `${t.district || 'City'} • ₹${t.price}` : t.type}) {t.imageUrl ? '✓ Has Image' : ''}
                       </option>
                     ))}
                   </select>
@@ -1052,7 +1052,7 @@ export const HostAdminDashboard: React.FC<HostAdminDashboardProps> = ({
                     const newReward: RewardDTO = {
                       id: `rew-${Date.now()}`,
                       name: 'Super Bonus Prize',
-                      description: 'You won a lottery jackpot! Collect $200.',
+                      description: 'You won a lottery jackpot! Collect ₹200.',
                       moneyGain: 200,
                       movementSpaces: 0,
                       bonusTurn: false,
@@ -1101,7 +1101,7 @@ export const HostAdminDashboard: React.FC<HostAdminDashboardProps> = ({
 
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div>
-                        <span className="text-slate-400 block mb-0.5">Money Gain ($)</span>
+                        <span className="text-slate-400 block mb-0.5">Money Gain (₹)</span>
                         <input
                           type="number"
                           value={rew.moneyGain}
@@ -1164,7 +1164,7 @@ export const HostAdminDashboard: React.FC<HostAdminDashboardProps> = ({
                     const newPunish: PunishmentDTO = {
                       id: `pun-${Date.now()}`,
                       name: 'Corporate Audit',
-                      description: 'Tax discrepancy found. Pay $100 fine to the bank.',
+                      description: 'Tax discrepancy found. Pay ₹100 fine to the bank.',
                       moneyLoss: 100,
                       fineRecipient: 'BANK',
                       movementSpaces: 0,
@@ -1214,7 +1214,7 @@ export const HostAdminDashboard: React.FC<HostAdminDashboardProps> = ({
 
                     <div className="grid grid-cols-3 gap-2 text-xs">
                       <div>
-                        <span className="text-slate-400 block mb-0.5">Fine ($)</span>
+                        <span className="text-slate-400 block mb-0.5">Fine (₹)</span>
                         <input
                           type="number"
                           value={pun.moneyLoss}
@@ -1281,7 +1281,7 @@ export const HostAdminDashboard: React.FC<HostAdminDashboardProps> = ({
                     Awarded every time a player passes or lands on space #0.
                   </p>
                   <div>
-                    <label className="text-xs text-slate-400 block mb-1">Passing Bonus Amount ($)</label>
+                    <label className="text-xs text-slate-400 block mb-1">Passing Bonus Amount (₹)</label>
                     <input
                       type="number"
                       value={rules.passStartBonus}
@@ -1336,7 +1336,7 @@ export const HostAdminDashboard: React.FC<HostAdminDashboardProps> = ({
 
               <div className="bg-[#11152a] rounded-2xl border border-[#232b4b] p-5 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                 <div>
-                  <label className="font-semibold text-slate-300 block mb-1">Starting Cash Per Player ($)</label>
+                  <label className="font-semibold text-slate-300 block mb-1">Starting Cash Per Player (₹)</label>
                   <input
                     type="number"
                     value={rules.startingCash}
@@ -1346,7 +1346,7 @@ export const HostAdminDashboard: React.FC<HostAdminDashboardProps> = ({
                 </div>
 
                 <div>
-                  <label className="font-semibold text-slate-300 block mb-1">Salary Bonus for Passing START ($)</label>
+                  <label className="font-semibold text-slate-300 block mb-1">Salary Bonus for Passing START (₹)</label>
                   <input
                     type="number"
                     value={rules.passStartBonus}

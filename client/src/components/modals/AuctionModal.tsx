@@ -108,7 +108,7 @@ export const AuctionModal: React.FC<AuctionModalProps> = ({
         <div className="bg-gradient-to-b from-[#181f3d] to-[#12162e] p-4 rounded-2xl border border-indigo-500/30 flex flex-col items-center">
           <span className="text-xs text-slate-400 uppercase font-semibold">Current Highest Bid</span>
           <span className="text-3xl sm:text-4xl font-black text-amber-400 my-1 drop-shadow">
-            ${auction.currentBid}
+            ₹{auction.currentBid}
           </span>
           <span className="text-xs text-slate-300 font-medium">
             {auction.highestBidderName ? (
@@ -125,7 +125,7 @@ export const AuctionModal: React.FC<AuctionModalProps> = ({
         {/* Quick Bid Increment Buttons */}
         <div className="flex flex-col gap-2">
           <span className="text-[11px] text-slate-400 font-semibold text-left">
-            Quick Bid (Your Balance: <span className="text-emerald-400 font-bold">${myMoney}</span>)
+            Quick Bid (Your Balance: <span className="text-emerald-400 font-bold">₹{myMoney}</span>)
           </span>
 
           <div className="grid grid-cols-3 gap-2">
@@ -145,7 +145,7 @@ export const AuctionModal: React.FC<AuctionModalProps> = ({
                   }`}
                 >
                   <ArrowUp className="w-3.5 h-3.5" />
-                  +${inc} (${target})
+                  +₹{inc} (₹{target})
                 </button>
               );
             })}
@@ -160,7 +160,7 @@ export const AuctionModal: React.FC<AuctionModalProps> = ({
             max={myMoney}
             value={customBid}
             onChange={(e) => setCustomBid(e.target.value)}
-            placeholder={`Enter bid > $${auction.currentBid}...`}
+            placeholder={`Enter bid > ₹${auction.currentBid}...`}
             className="flex-1 bg-[#090b16] border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
           />
           <button
