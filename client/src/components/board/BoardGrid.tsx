@@ -85,7 +85,7 @@ export const BoardGrid: React.FC<BoardGridProps> = ({
   };
 
   return (
-    <div className="relative w-full max-w-[min(99vw,calc(100vh-140px))] sm:max-w-[min(96vw,calc(100vh-175px),780px)] sm:max-h-[calc(100vh-175px)] aspect-square mx-auto p-1 sm:p-2 bg-[#0a0d1a] rounded-xl sm:rounded-2xl border-2 border-[#1e2645] shadow-2xl overflow-hidden select-none shrink-0">
+    <div className="relative w-full max-w-[min(99vw,calc(100vh-130px))] sm:max-w-[min(96vw,calc(100vh-180px),740px)] max-h-[calc(100vh-130px)] sm:max-h-[calc(100vh-180px)] aspect-square mx-auto p-1 sm:p-2 bg-[#0a0d1a] rounded-xl sm:rounded-2xl border-2 border-[#1e2645] shadow-2xl overflow-hidden select-none shrink-0">
       {/* 13x13 CSS Grid Board */}
       <div 
         className="grid w-full h-full gap-0.5 sm:gap-1"

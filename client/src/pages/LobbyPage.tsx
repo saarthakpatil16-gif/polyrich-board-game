@@ -258,9 +258,16 @@ export const LobbyPage: React.FC<LobbyPageProps> = ({
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-xs font-bold text-white block">Board Configuration: {state.boardTiles.length} Tiles</span>
+              <span className="text-xs font-bold text-white block">
+                Board Configuration: {state.boardTiles.length} Tiles
+                {state.boardTiles.filter(t => !!t.imageUrl).length > 0 && (
+                  <span className="text-amber-400 font-normal ml-1">
+                    ({state.boardTiles.filter(t => !!t.imageUrl).length} custom photos)
+                  </span>
+                )}
+              </span>
               <span className="text-[11px] text-slate-400">
-                Expanded Perimeter (12 per side) • Starting Cash: ${state.rules.startingCash} • Pass Start: +{state.rules.passStartBonus}
+                Expanded Perimeter (12 per side) • Starting Cash: ${state.rules.startingCash} • Pass Start: +${state.rules.passStartBonus}
               </span>
             </div>
           </div>

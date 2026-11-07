@@ -1,6 +1,6 @@
 import React from 'react';
 import { BoardTileDTO, PlayerDTO } from '../../types';
-import { X, ArrowUpCircle, Lock, Unlock } from 'lucide-react';
+import { X, ArrowUpCircle, Lock, Unlock, DollarSign } from 'lucide-react';
 
 interface PropertyDeedModalProps {
   tile: BoardTileDTO | null;
@@ -10,6 +10,7 @@ interface PropertyDeedModalProps {
   onUpgrade?: (tileId: string) => void;
   onMortgage?: (tileId: string) => void;
   onUnmortgage?: (tileId: string) => void;
+  onSell?: (tileId: string) => void;
   onClose: () => void;
 }
 
@@ -21,6 +22,7 @@ export const PropertyDeedModal: React.FC<PropertyDeedModalProps> = ({
   onUpgrade,
   onMortgage,
   onUnmortgage,
+  onSell,
   onClose,
 }) => {
   if (!tile) return null;
@@ -32,10 +34,14 @@ export const PropertyDeedModal: React.FC<PropertyDeedModalProps> = ({
   const ownsAllInGroup = groupTiles.length > 0 && groupTiles.every(t => t.ownerId === currentPlayer?.id);
   const anyMortgagedInGroup = groupTiles.some(t => t.isMortgaged);
   
-  const canUpgrade = isOwner && ownsAllInGroup && !anyMortgagedInGroup && !tile.isMortgaged && (tile.upgradeLevel || 0) < 3 && (currentPlayer.money >= (tile.upgradeCost || 100));
+  const canUpgrade = isOwner && ownsAllInGroup && !anyMortgagedInGroup && !tile.isMortgaged && (tile.upgradeLevel || 0) < 3 && ((currentPlayer?.money || 0) >= (tile.upgradeCost || 100));
   const canMortgage = isOwner && !tile.isMortgaged && (tile.upgradeLevel || 0) === 0;
   const unmortgageCost = Math.round(tile.price * 0.55);
-  const canUnmortgage = isOwner && tile.isMortgaged && (currentPlayer.money >= unmortgageCost);
+  const canUnmortgage = isOwner && tile.isMortgaged && ((currentPlayer?.money || 0) >= unmortgageCost);
+  const canSellProperty = isOwner && (tile.upgradeLevel || 0) === 0;
+  const canSellUpgrade = isOwner && (tile.upgradeLevel || 0) > 0;
+  const sellPropertyRefund = tile.isMortgaged ? Math.round(tile.price * 0.25) : tile.price;
+  const sellUpgradeRefund = Math.round((tile.upgradeCost || 100) * 0.5);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in select-none">
@@ -156,13 +162,23 @@ export const PropertyDeedModal: React.FC<PropertyDeedModalProps> = ({
                 </button>
               )}
 
+              {canSellUpgrade && onSell && (
+                <button
+                  onClick={() => onSell(tile.id)}
+                  className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl font-bold text-xs bg-amber-950/60 hover:bg-amber-900/80 text-amber-300 border border-amber-700/50 transition active:scale-95"
+                >
+                  <DollarSign className="w-3.5 h-3.5 text-amber-400" />
+                  Sell 1 Upgrade for +${sellUpgradeRefund} Cash
+                </button>
+              )}
+
               {canMortgage && onMortgage && (
                 <button
                   onClick={() => onMortgage(tile.id)}
                   className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl font-bold text-xs bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 transition active:scale-95"
                 >
                   <Lock className="w-3.5 h-3.5" />
-                  Mortgage for ${Math.round(tile.price * 0.5)} Cash
+                  Mortgage for +${Math.round(tile.price * 0.5)} Cash
                 </button>
               )}
 
@@ -173,6 +189,16 @@ export const PropertyDeedModal: React.FC<PropertyDeedModalProps> = ({
                 >
                   <Unlock className="w-3.5 h-3.5" />
                   Unmortgage (Pay ${unmortgageCost})
+                </button>
+              )}
+
+              {canSellProperty && onSell && (
+                <button
+                  onClick={() => onSell(tile.id)}
+                  className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl font-bold text-xs bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-700/50 transition active:scale-95"
+                >
+                  <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
+                  Sell Property to Bank for +${sellPropertyRefund} Cash
                 </button>
               )}
             </div>

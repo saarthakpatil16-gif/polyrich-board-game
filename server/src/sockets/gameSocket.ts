@@ -274,6 +274,18 @@ export function setupGameSockets(io: Server) {
     });
 
     /**
+     * Sell Property to Bank (RichUp.io feature)
+     */
+    socket.on('sell_property', (data: { roomCode: string; sessionId: string; tileId: string }) => {
+      try {
+        const room = roomManager.sellProperty(data.roomCode, data.sessionId, data.tileId);
+        io.to(data.roomCode.toUpperCase()).emit('game_state_updated', roomManager.getPublicState(room));
+      } catch (err: any) {
+        socket.emit('error_message', { message: err.message });
+      }
+    });
+
+    /**
      * Declare Bankruptcy (RichUp.io feature)
      */
     socket.on('declare_bankruptcy', (data: { roomCode: string; sessionId: string }) => {

@@ -95,14 +95,18 @@ export class RoomManager {
   }
 
   private persistTemplates(): void {
-    const directory = path.dirname(this.templatesFile);
-    fs.mkdirSync(directory, { recursive: true });
-    const tempFile = `${this.templatesFile}.tmp`;
-    fs.writeFileSync(tempFile, JSON.stringify({
-      defaultTemplateId: this.defaultTemplateId,
-      templates: Array.from(this.templates.values())
-    }, null, 2));
-    fs.renameSync(tempFile, this.templatesFile);
+    try {
+      const directory = path.dirname(this.templatesFile);
+      if (!fs.existsSync(directory)) {
+        fs.mkdirSync(directory, { recursive: true });
+      }
+      fs.writeFileSync(this.templatesFile, JSON.stringify({
+        defaultTemplateId: this.defaultTemplateId,
+        templates: Array.from(this.templates.values())
+      }, null, 2), 'utf8');
+    } catch (err) {
+      console.error('Failed to persist board templates to disk:', err);
+    }
   }
 
   public static getInstance(): RoomManager {
@@ -190,7 +194,7 @@ export class RoomManager {
     hostName: string, 
     avatar = 'token-1', 
     color = '#6366f1',
-    customTemplate?: { tiles?: BoardTileDTO[]; rewards?: RewardDTO[]; punishments?: PunishmentDTO[]; rules?: GameRulesDTO } | string
+    customTemplate?: BoardTemplateDTO | { tiles?: BoardTileDTO[]; rewards?: RewardDTO[]; punishments?: PunishmentDTO[]; rules?: GameRulesDTO; id?: string; name?: string; description?: string } | string
   ): { room: RoomInstance; hostPlayer: PlayerDTO } {
     let code = this.generateRoomCode();
     while (this.rooms.has(code)) {
@@ -205,10 +209,24 @@ export class RoomManager {
       templateData = this.templates.get(customTemplate);
     } else if (customTemplate && typeof customTemplate === 'object') {
       templateData = customTemplate;
+      if (customTemplate.tiles && Array.isArray(customTemplate.tiles) && customTemplate.tiles.length > 0) {
+        const tplId = customTemplate.id || `tpl-${Date.now()}`;
+        this.templates.set(tplId, {
+          id: tplId,
+          name: customTemplate.name || 'Custom Board',
+          description: customTemplate.description || 'Host custom board',
+          tiles: customTemplate.tiles,
+          rewards: customTemplate.rewards || DEFAULT_REWARDS,
+          punishments: customTemplate.punishments || DEFAULT_PUNISHMENTS,
+          rules: customTemplate.rules || DEFAULT_RULES,
+          updatedAt: new Date().toISOString()
+        });
+        this.persistTemplates();
+      }
     }
 
-    const defaultTemplate = this.templates.get(this.defaultTemplateId);
-    const selectedTemplate = templateData || defaultTemplate;
+    const defaultTemplate = this.templates.get(this.defaultTemplateId) || this.templates.get('default-expanded-48');
+    const selectedTemplate = (templateData && templateData.tiles && templateData.tiles.length > 0) ? templateData : defaultTemplate;
     const rules = selectedTemplate?.rules ? { ...selectedTemplate.rules } : { ...DEFAULT_RULES };
     const boardTiles = selectedTemplate?.tiles ? JSON.parse(JSON.stringify(selectedTemplate.tiles)) : createDefault48Tiles();
     const rewards = selectedTemplate?.rewards ? JSON.parse(JSON.stringify(selectedTemplate.rewards)) : JSON.parse(JSON.stringify(DEFAULT_REWARDS));
@@ -1019,6 +1037,64 @@ export class RoomManager {
       type: 'UNMORTGAGE',
       amount: -cost,
       details: `${player.name} unmortgaged ${tile.name} for $${cost}`
+    });
+
+    this.updateStats(room);
+    return room;
+  }
+
+  /**
+   * Sell Property back to Bank or sell house/upgrade (RichUp.io / Monopoly feature)
+   */
+  public sellProperty(code: string, sessionId: string, tileId: string): RoomInstance {
+    const room = this.rooms.get(code.toUpperCase());
+    if (!room) throw new Error('Room not found');
+
+    const player = room.players.find(p => p.sessionId === sessionId);
+    if (!player) throw new Error('Player not found');
+    if (player.isBankrupt) throw new Error('Bankrupt players cannot sell');
+
+    const tile = room.boardTiles.find(t => t.id === tileId);
+    if (!tile || tile.ownerId !== player.id) throw new Error('You do not own this property');
+
+    // Case 1: If upgraded, sell 1 upgrade level for 50% refund
+    if ((tile.upgradeLevel || 0) > 0) {
+      const upgradeCost = tile.upgradeCost || 100;
+      const refund = Math.round(upgradeCost * 0.5);
+      tile.upgradeLevel = (tile.upgradeLevel || 0) - 1;
+      player.money = Number(player.money || 0) + refund;
+
+      this.addTransaction(room, {
+        round: room.currentRound,
+        playerId: player.id,
+        playerName: player.name,
+        playerColor: player.color,
+        type: 'SELL_UPGRADE',
+        amount: refund,
+        details: `${player.name} sold an upgrade tier on ${tile.name} and collected $${refund} cash!`
+      });
+
+      this.updateStats(room);
+      return room;
+    }
+
+    // Case 2: Sell property back to Bank
+    // If mortgaged: 25% cash; if unmortgaged: full purchase price refund
+    const refund = tile.isMortgaged ? Math.round(tile.price * 0.25) : tile.price;
+    tile.ownerId = null;
+    tile.upgradeLevel = 0;
+    tile.isMortgaged = false;
+    player.propertyCount = Math.max(0, (player.propertyCount || 1) - 1);
+    player.money = Number(player.money || 0) + refund;
+
+    this.addTransaction(room, {
+      round: room.currentRound,
+      playerId: player.id,
+      playerName: player.name,
+      playerColor: player.color,
+      type: 'SELL_PROPERTY',
+      amount: refund,
+      details: `${player.name} sold ${tile.name} back to the bank and collected $${refund} cash!`
     });
 
     this.updateStats(room);

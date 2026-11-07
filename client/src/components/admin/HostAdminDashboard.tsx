@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BoardTileDTO, 
   RewardDTO, 
   PunishmentDTO, 
   GameRulesDTO, 
-  UploadedImageMeta 
+  UploadedImageMeta,
+  PublicGameState
 } from '../../types';
 import { api } from '../../services/api';
 import { soundFX } from '../../utils/audio';
 import { GoogleUserProfile } from '../../services/googleAuth';
+import { BoardGrid } from '../board/BoardGrid';
 import { 
   LayoutGrid, 
   MapPin, 
@@ -72,17 +74,24 @@ export const HostAdminDashboard: React.FC<HostAdminDashboardProps> = ({
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [validationReport, setValidationReport] = useState<{ valid: boolean; errors: string[]; warnings: string[] } | null>(null);
+  const [customTemplateName, setCustomTemplateName] = useState<string>('My Custom Board');
+  const [isPreviewOpen, setIsPreviewOpen] = useState<boolean>(false);
 
   // Selected tile for granular editing
   const [selectedTileId, setSelectedTileId] = useState<string>(tiles[0]?.id || '');
   const [imageInputUrl, setImageInputUrl] = useState<string>('');
 
-  // Load uploaded photos on mount
-  React.useEffect(() => {
+  // Load uploaded photos and active template name on mount
+  useEffect(() => {
     api.getUploadedPhotos().then(res => {
       if (res.images) setUploadedPhotos(res.images);
     }).catch(console.error);
-  }, []);
+
+    const userIdent = googleUser?.email || googleUser?.sub;
+    api.getDefaultTemplate(userIdent).then(tpl => {
+      if (tpl?.name) setCustomTemplateName(tpl.name);
+    }).catch(console.warn);
+  }, [googleUser]);
 
   const pushUndo = () => {
     setUndoStack(prev => [...prev.slice(-10), JSON.stringify({ tiles, rewards, punishments, rules })]);
@@ -240,8 +249,9 @@ export const HostAdminDashboard: React.FC<HostAdminDashboardProps> = ({
 
       const userIdent = googleUser?.email || googleUser?.sub;
       const previousTemplate = await api.getDefaultTemplate(userIdent);
+      const tplName = customTemplateName.trim() || previousTemplate?.name || 'My Custom Board';
       const savedTemplate = await api.saveTemplate({
-        name: previousTemplate?.name || 'My Custom Board',
+        name: tplName,
         description: `Host saved board template${googleUser?.email ? ` (${googleUser.email})` : ''}`,
         tiles,
         rewards,
@@ -251,21 +261,63 @@ export const HostAdminDashboard: React.FC<HostAdminDashboardProps> = ({
         userId: googleUser?.sub,
         userEmail: googleUser?.email
       });
-      localStorage.setItem('polyrich_custom_template', JSON.stringify(savedTemplate.template));
+      if (savedTemplate?.template) {
+        localStorage.setItem('polyrich_custom_template', JSON.stringify(savedTemplate.template));
+      }
 
       const val = await api.validateBoard(roomCode);
       setValidationReport(val);
 
-      setSaveStatus('Board saved and validated successfully!');
+      const customPhotoCount = tiles.filter(t => !!t.imageUrl).length;
+      setSaveStatus(`✓ Board "${tplName}" (${customPhotoCount} custom photos) successfully saved and synced!`);
       soundFX.playCash();
       onSaved(tiles, rewards, punishments, rules);
-      setTimeout(() => setSaveStatus(null), 3000);
+      setTimeout(() => setSaveStatus(null), 4000);
     } catch (err: any) {
       setSaveStatus(`Error saving: ${err.message}`);
     }
   };
 
   const currentSelectedTile = tiles.find(t => t.id === selectedTileId) || tiles[0];
+
+  const previewState: PublicGameState = {
+    roomCode,
+    status: 'PLAYING',
+    currentTurnIdx: 0,
+    activePlayerId: 'preview-player-1',
+    boardTiles: tiles,
+    players: [
+      {
+        id: 'preview-player-1',
+        sessionId: hostSessionId,
+        name: googleUser?.name || 'You (Host)',
+        avatar: 'token-1',
+        color: '#6366f1',
+        money: rules.startingCash || 1500,
+        position: 0,
+        inJail: false,
+        jailTurns: 0,
+        isBankrupt: false,
+        isConnected: true,
+        orderIndex: 0,
+        propertyCount: tiles.filter(t => t.ownerId === 'preview-player-1').length,
+        isReady: true,
+        isHost: true,
+        netWorth: rules.startingCash || 1500
+      }
+    ],
+    dice: [3, 4],
+    lastRollTotal: 7,
+    actionStage: 'AWAITING_ROLL',
+    currentRound: 1,
+    rewards,
+    punishments,
+    rules,
+    transactions: [],
+    activePopup: null,
+    turnExpiresAt: null,
+    winner: null
+  };
 
   const tabs = [
     { id: 1, label: '1. Board Layout', icon: <LayoutGrid className="w-4 h-4" /> },
@@ -313,6 +365,14 @@ export const HostAdminDashboard: React.FC<HostAdminDashboardProps> = ({
               <RotateCcw className="w-3.5 h-3.5" /> Undo
             </button>
           )}
+
+          <button
+            onClick={() => { soundFX.playClick(); setIsPreviewOpen(true); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold bg-indigo-600/90 hover:bg-indigo-500 text-white border border-indigo-400/40 shadow-md transition active:scale-95"
+            title="Preview live 2D board with uploaded photos and prices"
+          >
+            <Eye className="w-4 h-4 text-amber-300" /> Preview Board
+          </button>
 
           <button
             onClick={handleSaveAll}
@@ -1457,47 +1517,104 @@ export const HostAdminDashboard: React.FC<HostAdminDashboardProps> = ({
 
               {/* Reusable Template Saver Box */}
               <div className="bg-[#11152a] p-4 rounded-2xl border border-indigo-500/30 flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <div>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex-1">
                     <span className="text-xs font-bold text-amber-400 uppercase tracking-widest block">
-                      Permanent Template Storage
+                      Permanent Cloud Storage
                     </span>
                     <h4 className="text-sm font-black text-white">
                       Save as Reusable Board Template
                     </h4>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      Save your custom cities, photos, rewards, punishments, and rules permanently. All future rooms you create will automatically load this custom board!
+                      Save your custom cities, uploaded photos, rewards, punishments, and rules permanently. All future rooms you create will automatically load this board!
                     </p>
+                    {googleUser && (
+                      <span className="inline-flex items-center gap-1.5 text-[11px] text-emerald-400 font-medium mt-1">
+                        <Check className="w-3.5 h-3.5 text-emerald-400" /> Linked to Google Account: {googleUser.email}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center gap-2 pt-1 border-t border-slate-800/80">
+                  <div className="w-full sm:flex-1">
+                    <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">
+                      Board Template Name
+                    </label>
+                    <input
+                      type="text"
+                      value={customTemplateName}
+                      onChange={(e) => setCustomTemplateName(e.target.value)}
+                      placeholder="e.g. World Tour Edition, Pune Mogul 2026..."
+                      className="w-full bg-[#0a0d1a] border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-semibold"
+                    />
                   </div>
                   <button
                     onClick={async () => {
-                      const tName = prompt('Enter a name for this reusable template:', 'My Custom Board');
-                      if (!tName) return;
+                      const tName = customTemplateName.trim() || 'My Custom Board';
                       try {
-                      const userIdent = googleUser?.email || googleUser?.sub;
-                      const previousTemplate = await api.getDefaultTemplate(userIdent);
-                      const savedTpl = await api.saveTemplate({
-                        name: tName,
-                        description: `Host custom board template${googleUser?.email ? ` (${googleUser.email})` : ''}`,
-                        tiles,
-                        rewards,
-                        punishments,
-                        rules,
-                        existingId: previousTemplate?.id,
-                        userId: googleUser?.sub,
-                        userEmail: googleUser?.email
-                      });
-                      localStorage.setItem('polyrich_custom_template', JSON.stringify(savedTpl.template));
-                      soundFX.playCash();
-                      alert(`Template "${tName}" saved to your Google account! Future gameplay will automatically load this board.`);
+                        const userIdent = googleUser?.email || googleUser?.sub;
+                        const previousTemplate = await api.getDefaultTemplate(userIdent);
+                        const savedTpl = await api.saveTemplate({
+                          name: tName,
+                          description: `Host custom board template${googleUser?.email ? ` (${googleUser.email})` : ''}`,
+                          tiles,
+                          rewards,
+                          punishments,
+                          rules,
+                          existingId: previousTemplate?.id,
+                          userId: googleUser?.sub,
+                          userEmail: googleUser?.email
+                        });
+                        if (savedTpl?.template) {
+                          localStorage.setItem('polyrich_custom_template', JSON.stringify(savedTpl.template));
+                        }
+                        soundFX.playCash();
+                        setSaveStatus(`✓ Template "${tName}" saved! Future rooms will automatically load this board.`);
+                        onSaved(tiles, rewards, punishments, rules);
+                        setTimeout(() => setSaveStatus(null), 4000);
                       } catch (err: any) {
                         alert(`Error saving template: ${err.message}`);
                       }
                     }}
-                    className="px-4 py-2 rounded-xl text-xs font-black bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 text-slate-950 shadow-gold transition active:scale-95 shrink-0"
+                    className="w-full sm:w-auto mt-4 sm:mt-0 px-5 py-2.5 rounded-xl text-xs font-black bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 text-slate-950 shadow-gold transition active:scale-95 shrink-0 flex items-center justify-center gap-1.5"
                   >
-                    Save As Default Template
+                    <Save className="w-3.5 h-3.5" /> Save Template for Future Games
                   </button>
+                </div>
+              </div>
+
+              {/* Inline Board Preview Section */}
+              <div className="bg-[#11152a] p-4 rounded-2xl border border-[#232b4b] flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Eye className="w-4 h-4 text-indigo-400" />
+                    <span className="text-xs font-bold text-white uppercase tracking-wider">
+                      Live 2D Board Preview
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setIsPreviewOpen(true)}
+                    className="px-3 py-1 rounded-lg text-xs font-bold bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 hover:bg-indigo-600/50 transition"
+                  >
+                    Open Fullscreen Preview
+                  </button>
+                </div>
+                <div className="w-full max-w-[580px] aspect-square mx-auto p-2 bg-[#070914] rounded-2xl border border-slate-800/80 shadow-inner flex items-center justify-center">
+                  <BoardGrid
+                    state={previewState}
+                    currentPlayer={previewState.players[0]}
+                    onRollDice={() => {}}
+                    onBuyProperty={() => {}}
+                    onSkipPurchase={() => {}}
+                    onEndTurn={() => {}}
+                    onTileClick={(tile) => setSelectedTileId(tile.id)}
+                    soundEnabled={false}
+                    onToggleSound={() => {}}
+                    displayedPositions={{ 'preview-player': 0 }}
+                    hoppingPlayerId={null}
+                    isPawnMoving={false}
+                  />
                 </div>
               </div>
 
@@ -1521,6 +1638,82 @@ export const HostAdminDashboard: React.FC<HostAdminDashboardProps> = ({
           )}
         </div>
       </div>
+
+      {/* ================= LIVE BOARD PREVIEW MODAL ================= */}
+      {isPreviewOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in select-none">
+          <div className="w-full max-w-4xl max-h-[96vh] bg-[#0c0f22] border border-[#232b4b] rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-3 sm:p-4 bg-[#11152a] border-b border-slate-800 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-indigo-600/30 text-indigo-400 border border-indigo-500/40">
+                  <Eye className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
+                    Board Preview: {customTemplateName || 'My Custom Board'}
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                      {tiles.length} Tiles • {tiles.filter(t => !!t.imageUrl).length} Photos
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Live view of your customized 2D board with uploaded photos and prices as players will see it.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsPreviewOpen(false)}
+                className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body: Board Grid */}
+            <div className="flex-1 p-2 sm:p-4 overflow-auto flex items-center justify-center min-h-0 bg-[#070914]">
+              <div className="w-full max-w-[min(90vw,calc(90vh-140px),720px)] aspect-square">
+                <BoardGrid
+                  state={previewState}
+                  currentPlayer={previewState.players[0]}
+                  onRollDice={() => {}}
+                  onBuyProperty={() => {}}
+                  onSkipPurchase={() => {}}
+                  onEndTurn={() => {}}
+                  onTileClick={(tile) => {
+                    setSelectedTileId(tile.id);
+                  }}
+                  soundEnabled={false}
+                  onToggleSound={() => {}}
+                  displayedPositions={{ 'preview-player': 0 }}
+                  hoppingPlayerId={null}
+                  isPawnMoving={false}
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-3 bg-[#11152a] border-t border-slate-800 flex items-center justify-between shrink-0 text-xs">
+              <span className="text-slate-400 text-[11px]">
+                Tip: Click any tile in the board to select it for editing.
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSaveAll}
+                  className="px-3.5 py-1.5 rounded-xl font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center gap-1.5 shadow"
+                >
+                  <Save className="w-3.5 h-3.5" /> Save Changes
+                </button>
+                <button
+                  onClick={() => setIsPreviewOpen(false)}
+                  className="px-3.5 py-1.5 rounded-xl font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
+                >
+                  Close Preview
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

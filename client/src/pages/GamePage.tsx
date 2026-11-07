@@ -34,6 +34,7 @@ interface GamePageProps {
   onCancelTrade: () => void;
   onMortgageProperty: (tileId: string) => void;
   onUnmortgageProperty: (tileId: string) => void;
+  onSellProperty?: (tileId: string) => void;
   onDeclareBankruptcy: () => void;
 }
 
@@ -55,6 +56,7 @@ export const GamePage: React.FC<GamePageProps> = ({
   onCancelTrade,
   onMortgageProperty,
   onUnmortgageProperty,
+  onSellProperty,
   onDeclareBankruptcy,
 }) => {
   // Selected tile for property deed inspection
@@ -73,12 +75,17 @@ export const GamePage: React.FC<GamePageProps> = ({
   const [visiblePopup, setVisiblePopup] = useState<GameEventPopup | null>(null);
 
   const prevPositionsRef = useRef<Record<string, number>>({});
-  const isHost = currentPlayer?.isHost || false;
-  const isMyTurn = currentPlayer?.id === state.activePlayerId;
+
+  // Real-time synchronization: derive current user snapshot from state.players so cash is never stale
+  const me = currentPlayer
+    ? state.players.find(p => p.id === currentPlayer.id || (currentPlayer.sessionId && p.sessionId === currentPlayer.sessionId)) || currentPlayer
+    : null;
+  const isHost = me?.isHost || false;
+  const isMyTurn = me?.id === state.activePlayerId;
 
   // My owned properties
-  const myProperties = currentPlayer
-    ? state.boardTiles.filter(t => t.ownerId === currentPlayer.id && t.type === 'PROPERTY')
+  const myProperties = me
+    ? state.boardTiles.filter(t => t.ownerId === me.id && t.type === 'PROPERTY')
     : [];
 
   // Initialize or track player movements
@@ -237,19 +244,19 @@ export const GamePage: React.FC<GamePageProps> = ({
       </header>
 
       {/* Main Game Content Area - Flexible Viewport Fitting */}
-      <div className="flex-1 flex flex-col gap-1 max-w-[1200px] w-full mx-auto min-h-0 overflow-hidden">
+      <div className="flex-1 flex flex-col gap-1 max-w-[1200px] w-full mx-auto min-h-0 overflow-y-auto sm:overflow-hidden">
         {/* Compact Players Panel */}
         <PlayerList
           players={state.players}
           activePlayerId={state.activePlayerId}
-          currentPlayerId={currentPlayer?.id}
+          currentPlayerId={me?.id}
         />
 
         {/* Board Display - Full view on laptop as well as mobile */}
         <div className="flex-1 flex items-center justify-center min-h-0 py-0.5 overflow-hidden">
           <BoardGrid
             state={state}
-            currentPlayer={currentPlayer}
+            currentPlayer={me}
             onRollDice={onRollDice}
             onBuyProperty={onBuyProperty}
             onSkipPurchase={onSkipPurchase}
@@ -283,10 +290,10 @@ export const GamePage: React.FC<GamePageProps> = ({
                 </span>
               )}
               {/* Cash display */}
-              {currentPlayer && (
+              {me && (
                 <span className="flex items-center gap-0.5 text-[9px] sm:text-[10px] text-emerald-400 font-bold ml-1">
                   <DollarSign className="w-2.5 h-2.5" />
-                  {currentPlayer.money}
+                  {me.money}
                 </span>
               )}
             </div>
@@ -314,12 +321,14 @@ export const GamePage: React.FC<GamePageProps> = ({
                     const upgradeLevel = tile.upgradeLevel ?? 0;
                     // Check if player owns all properties of this color category
                     const colorGroupTiles = state.boardTiles.filter(t => t.type === 'PROPERTY' && t.colorGroup === tile.colorGroup);
-                    const ownsEntireColorGroup = colorGroupTiles.length > 0 && colorGroupTiles.every(t => t.ownerId === currentPlayer?.id);
+                    const ownsEntireColorGroup = colorGroupTiles.length > 0 && colorGroupTiles.every(t => t.ownerId === me?.id);
                     const hasMortgagedInGroup = colorGroupTiles.some(t => t.isMortgaged);
-                    const canUpgrade = ownsEntireColorGroup && !hasMortgagedInGroup && !tile.isMortgaged && upgradeLevel < 3 && currentPlayer && currentPlayer.money >= (tile.upgradeCost || 100);
+                    const canUpgrade = ownsEntireColorGroup && !hasMortgagedInGroup && !tile.isMortgaged && upgradeLevel < 3 && me && me.money >= (tile.upgradeCost || 100);
                     const canMortgage = !tile.isMortgaged && upgradeLevel === 0;
                     const unmortgageCost = Math.round(tile.price * 0.55);
-                    const canUnmortgage = tile.isMortgaged && currentPlayer && currentPlayer.money >= unmortgageCost;
+                    const canUnmortgage = tile.isMortgaged && me && me.money >= unmortgageCost;
+                    const canSell = upgradeLevel === 0;
+                    const sellCash = tile.isMortgaged ? Math.round(tile.price * 0.25) : tile.price;
 
                     return (
                       <div
@@ -390,7 +399,16 @@ export const GamePage: React.FC<GamePageProps> = ({
                               Unmtg
                             </button>
                           )}
-                          {!canUpgrade && !canMortgage && !canUnmortgage && (
+                          {canSell && onSellProperty && (
+                            <button
+                              onClick={(e: React.MouseEvent) => { e.stopPropagation(); onSellProperty(tile.id); }}
+                              className="flex-1 flex items-center justify-center py-1 rounded-lg text-[8px] font-bold bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/40 transition active:scale-95"
+                              title={`Sell back to bank for +$${sellCash} cash`}
+                            >
+                              Sell +${sellCash}
+                            </button>
+                          )}
+                          {!canUpgrade && !canMortgage && !canUnmortgage && !canSell && (
                             <button
                               onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleTileClick(tile); }}
                               className="flex-1 flex items-center justify-center py-1 rounded-lg text-[8px] font-medium bg-slate-900/60 text-slate-500 border border-slate-800 transition"
@@ -421,7 +439,7 @@ export const GamePage: React.FC<GamePageProps> = ({
       <PropertyDeedModal
         tile={inspectedTile}
         owner={inspectedTileOwner}
-        currentPlayer={currentPlayer}
+        currentPlayer={me}
         allTiles={state.boardTiles}
         onUpgrade={(tileId: string) => {
           onUpgradeProperty(tileId);
@@ -433,6 +451,10 @@ export const GamePage: React.FC<GamePageProps> = ({
         }}
         onUnmortgage={(tileId: string) => {
           onUnmortgageProperty(tileId);
+          setInspectedTile(null);
+        }}
+        onSell={(tileId: string) => {
+          onSellProperty?.(tileId);
           setInspectedTile(null);
         }}
         onClose={() => setInspectedTile(null)}

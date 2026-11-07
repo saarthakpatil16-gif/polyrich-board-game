@@ -57,6 +57,16 @@ export function App() {
     return googleAuth.getStoredUser();
   });
 
+  // Helper to keep both gameState and currentPlayer strictly synchronized
+  const updatePlayerAndState = (newState: PublicGameState) => {
+    setGameState(newState);
+    setCurrentPlayer(prev => {
+      if (!prev) return prev;
+      const updated = newState.players.find(p => p.id === prev.id || (prev.sessionId && p.sessionId === prev.sessionId));
+      return updated ? { ...prev, ...updated } : prev;
+    });
+  };
+
   // Initialize from URL params or local storage for automatic reconnection & template load
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -82,7 +92,7 @@ export function App() {
     // board from another browser or device.
     const userIdent = googleUser?.email || googleUser?.sub;
     api.getDefaultTemplate(userIdent).then((template) => {
-      if (template?.id) {
+      if (template?.id && Array.isArray(template.tiles)) {
         setSavedTemplate(template);
         localStorage.setItem(TEMPLATE_KEY, JSON.stringify(template));
       }
@@ -101,13 +111,13 @@ export function App() {
               setScreen(data.state.status === 'PLAYING' ? 'GAME' : 'LOBBY');
             },
             onStateUpdate: (state) => {
-              setGameState(state);
+              updatePlayerAndState(state);
               if (state.status === 'PLAYING') setScreen('GAME');
               else if (state.status === 'LOBBY') setScreen('LOBBY');
             },
             onDiceRolled: (data) => {
               soundFX.playDiceRoll();
-              setGameState(data.state);
+              updatePlayerAndState(data.state);
             },
             onError: (msg) => {
               console.warn('Reconnect error:', msg);
@@ -133,20 +143,7 @@ export function App() {
       try {
         const res = await api.getRoom(gameState.roomCode);
         if (res.state) {
-          setGameState(prev => {
-            if (
-              !prev ||
-              prev.actionStage !== res.state.actionStage ||
-              prev.activePlayerId !== res.state.activePlayerId ||
-              prev.currentTurnIdx !== res.state.currentTurnIdx ||
-              prev.currentRound !== res.state.currentRound ||
-              prev.status !== res.state.status ||
-              prev.transactions.length !== res.state.transactions.length
-            ) {
-              return res.state;
-            }
-            return prev;
-          });
+          updatePlayerAndState(res.state);
           if (res.state.status === 'PLAYING' && screen !== 'GAME') {
             setScreen('GAME');
           }
@@ -201,8 +198,10 @@ export function App() {
 
     try {
       soundFX.playClick();
-      // Pass saved custom template if available so the host doesn't have to reconfigure every time!
-      const templateToUse = useCustomTemplate && savedTemplate ? savedTemplate.id : 'default-expanded-48';
+      // Pass full saved custom template if available so that all customized tiles, images, districts, and prices load directly!
+      const templateToUse = (useCustomTemplate && savedTemplate && savedTemplate.tiles && savedTemplate.tiles.length > 0)
+        ? savedTemplate
+        : undefined;
       const res = await api.createRoom(playerName.trim(), undefined, undefined, templateToUse);
 
       saveSessionForRoom(res.roomCode, res.hostPlayer.sessionId);
@@ -216,12 +215,13 @@ export function App() {
           setGameState(data.state);
         },
         onStateUpdate: (state) => {
-          setGameState(state);
+          updatePlayerAndState(state);
           if (state.status === 'PLAYING') setScreen('GAME');
+          else if (state.status === 'LOBBY') setScreen('LOBBY');
         },
         onDiceRolled: (data) => {
           soundFX.playDiceRoll();
-          setGameState(data.state);
+          updatePlayerAndState(data.state);
         },
         onError: (msg) => setErrorMessage(msg)
       });
@@ -265,12 +265,13 @@ export function App() {
           setGameState(data.state);
         },
         onStateUpdate: (state) => {
-          setGameState(state);
+          updatePlayerAndState(state);
           if (state.status === 'PLAYING') setScreen('GAME');
+          else if (state.status === 'LOBBY') setScreen('LOBBY');
         },
         onDiceRolled: (data) => {
           soundFX.playDiceRoll();
-          setGameState(data.state);
+          updatePlayerAndState(data.state);
         },
         onError: (msg) => setErrorMessage(msg)
       });
@@ -459,6 +460,17 @@ export function App() {
     });
   };
 
+  const handleSellProperty = (tileId: string) => {
+    if (!gameState || !currentPlayer?.sessionId) return;
+    soundFX.playCash();
+    const socket = getSocket();
+    socket.emit('sell_property', {
+      roomCode: gameState.roomCode,
+      sessionId: currentPlayer.sessionId,
+      tileId
+    });
+  };
+
   const handleDeclareBankruptcy = () => {
     if (!gameState || !currentPlayer?.sessionId) return;
     if (!window.confirm('Are you sure you want to declare bankruptcy? All your properties will be liquidated and you will be eliminated from the game.')) return;
@@ -632,25 +644,33 @@ export function App() {
             )}
           </div>
 
-          {/* Template Status Pill */}
+          {/* Template Status Card */}
           {savedTemplate && (
-            <div className="bg-[#0b0e1e] p-2.5 rounded-2xl border border-indigo-500/40 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-400" />
-                <div className="text-left">
-                  <span className="text-[10px] text-slate-400 block font-semibold">Custom Board Loaded:</span>
-                  <span className="text-xs font-bold text-white truncate max-w-[170px] inline-block">{savedTemplate.name}</span>
+            <div className="bg-[#0b0e1e] p-3 rounded-2xl border border-indigo-500/40 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+                  <div className="text-left">
+                    <span className="text-[10px] text-slate-400 block font-semibold">Custom Board Template:</span>
+                    <span className="text-xs font-bold text-white truncate max-w-[200px] inline-block">{savedTemplate.name}</span>
+                  </div>
                 </div>
+                <label className="flex items-center gap-1.5 text-[11px] text-slate-300 cursor-pointer bg-slate-900/80 px-2 py-1 rounded-lg border border-slate-700/60">
+                  <input
+                    type="checkbox"
+                    checked={useCustomTemplate}
+                    onChange={(e) => setUseCustomTemplate(e.target.checked)}
+                    className="rounded accent-indigo-500"
+                  />
+                  <span>Use for Room</span>
+                </label>
               </div>
-              <label className="flex items-center gap-1.5 text-[11px] text-slate-300 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={useCustomTemplate}
-                  onChange={(e) => setUseCustomTemplate(e.target.checked)}
-                  className="rounded accent-indigo-500"
-                />
-                Auto-load
-              </label>
+              <div className="flex items-center justify-between text-[10px] text-slate-400 border-t border-slate-800/80 pt-1.5 px-0.5">
+                <span>
+                  {savedTemplate.tiles?.length || 48} tiles • {savedTemplate.tiles?.filter(t => !!t.imageUrl).length || 0} custom photos
+                </span>
+                <span className="text-emerald-400 font-medium">✓ Loaded</span>
+              </div>
             </div>
           )}
 
@@ -800,6 +820,7 @@ export function App() {
           onCancelTrade={handleCancelTrade}
           onMortgageProperty={handleMortgageProperty}
           onUnmortgageProperty={handleUnmortgageProperty}
+          onSellProperty={handleSellProperty}
           onDeclareBankruptcy={handleDeclareBankruptcy}
         />
         {isEditorOpen && currentPlayer?.sessionId && (

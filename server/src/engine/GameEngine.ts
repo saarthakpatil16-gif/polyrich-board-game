@@ -124,8 +124,8 @@ export class GameEngine {
     switch (tile.type) {
       case 'START': {
         txType = 'START_BONUS';
-        txAmount = rules.passStartBonus;
-        playerDelta.money = player.money + txAmount;
+        txAmount = Number(rules.passStartBonus || 200);
+        playerDelta.money = Number(player.money || 0) + txAmount;
         transactionDetails = `${player.name} landed directly on START and collected $${txAmount}`;
         popup = {
           id: uuidv4(),
@@ -139,7 +139,7 @@ export class GameEngine {
 
       case 'PROPERTY': {
         if (!tile.ownerId) {
-          if (tile.canBuy && player.money >= tile.price) {
+          if (tile.canBuy && Number(player.money || 0) >= Number(tile.price)) {
             stage = 'AWAITING_BUY_DECISION';
             transactionDetails = `${player.name} landed on unowned property ${tile.name} (Price: $${tile.price})`;
             popup = {
@@ -159,7 +159,7 @@ export class GameEngine {
           }
         } else if (tile.ownerId === player.id) {
           // Self-owned property
-          if (tile.upgradeCost > 0 && player.money >= tile.upgradeCost && (tile.upgradeLevel || 0) < 3) {
+          if (tile.upgradeCost > 0 && Number(player.money || 0) >= tile.upgradeCost && (tile.upgradeLevel || 0) < 3) {
             transactionDetails = `${player.name} visited their own property ${tile.name}. Can upgrade for $${tile.upgradeCost}.`;
           } else {
             transactionDetails = `${player.name} visited their own property ${tile.name}.`;
@@ -171,8 +171,8 @@ export class GameEngine {
             const rent = this.calculateRent(tile, allTiles);
             txType = 'RENT';
             txAmount = rent;
-            const deduction = Math.min(player.money, rent);
-            playerDelta.money = player.money - deduction;
+            const deduction = Math.min(Number(player.money || 0), rent);
+            playerDelta.money = Math.max(0, Number(player.money || 0) - deduction);
             otherPlayersDelta.push({ id: owner.id, deltaMoney: deduction });
             transactionDetails = `${player.name} paid $${deduction} rent to ${owner.name} for ${tile.name}`;
             
@@ -195,10 +195,10 @@ export class GameEngine {
       }
 
       case 'TAX': {
-        const taxAmount = tile.price > 0 ? tile.price : 100;
+        const taxAmount = Number(tile.price > 0 ? tile.price : 100);
         txType = 'TAX';
         txAmount = taxAmount;
-        playerDelta.money = Math.max(0, player.money - taxAmount);
+        playerDelta.money = Math.max(0, Number(player.money || 0) - taxAmount);
         transactionDetails = `${player.name} paid $${taxAmount} in city taxes at ${tile.name}`;
         popup = {
           id: uuidv4(),
@@ -207,7 +207,7 @@ export class GameEngine {
           description: `You paid $${taxAmount} city fee at ${tile.name}.`,
           amount: -taxAmount
         };
-        if (player.money < taxAmount && !rules.allowNegativeBalance) {
+        if (Number(player.money || 0) < taxAmount && !rules.allowNegativeBalance) {
           playerDelta.isBankrupt = true;
         }
         break;
@@ -218,19 +218,20 @@ export class GameEngine {
         // Look up reward definition
         const reward = rewards.find(r => r.id === tile.rewardId) || rewards[0];
         if (reward) {
+          const gain = Number(reward.moneyGain || 0);
           txType = 'REWARD';
-          txAmount = reward.moneyGain;
-          playerDelta.money = player.money + reward.moneyGain;
+          txAmount = gain;
+          playerDelta.money = Number(player.money || 0) + gain;
           if (reward.bonusTurn) extraTurn = true;
           if (reward.movementSpaces !== 0) secondaryMovement = reward.movementSpaces;
 
-          transactionDetails = `${player.name} received reward: ${reward.name} (+$${reward.moneyGain})`;
+          transactionDetails = `${player.name} received reward: ${reward.name} (+$${gain})`;
           popup = {
             id: uuidv4(),
             type: 'REWARD',
             title: reward.name,
             description: reward.description,
-            amount: reward.moneyGain,
+            amount: gain,
             imageUrl: reward.imageUrl || tile.imageUrl
           };
         }
@@ -240,9 +241,10 @@ export class GameEngine {
       case 'PUNISHMENT': {
         const punishment = punishments.find(p => p.id === tile.punishmentId) || punishments[0];
         if (punishment) {
+          const loss = Number(punishment.moneyLoss || 0);
           txType = 'PUNISHMENT';
-          txAmount = punishment.moneyLoss;
-          playerDelta.money = Math.max(0, player.money - punishment.moneyLoss);
+          txAmount = loss;
+          playerDelta.money = Math.max(0, Number(player.money || 0) - loss);
           if (punishment.movementSpaces !== 0) secondaryMovement = punishment.movementSpaces;
           if (punishment.skipTurns > 0) playerDelta.jailTurns = (player.jailTurns || 0) + punishment.skipTurns;
           if (punishment.destinationTile !== null && punishment.destinationTile !== undefined) {
@@ -253,21 +255,21 @@ export class GameEngine {
             const activeEligible = allPlayers.filter(p => !p.isBankrupt && p.id !== player.id);
             if (activeEligible.length > 0) {
               const nextP = activeEligible[0];
-              otherPlayersDelta.push({ id: nextP.id, deltaMoney: punishment.moneyLoss });
+              otherPlayersDelta.push({ id: nextP.id, deltaMoney: loss });
             }
           }
 
-          transactionDetails = `${player.name} suffered punishment: ${punishment.name} (-$${punishment.moneyLoss})`;
+          transactionDetails = `${player.name} suffered punishment: ${punishment.name} (-$${loss})`;
           popup = {
             id: uuidv4(),
             type: 'PUNISHMENT',
             title: punishment.name,
             description: punishment.description,
-            amount: -punishment.moneyLoss,
+            amount: -loss,
             imageUrl: punishment.imageUrl || tile.imageUrl
           };
 
-          if (player.money < punishment.moneyLoss && !rules.allowNegativeBalance) {
+          if (Number(player.money || 0) < loss && !rules.allowNegativeBalance) {
             playerDelta.isBankrupt = true;
           }
         }
