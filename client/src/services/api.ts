@@ -13,11 +13,18 @@ export const api = {
   /**
    * Create a new multiplayer room
    */
-  async createRoom(hostName: string, avatar?: string, color?: string, customTemplate?: any) {
+  async createRoom(
+    hostName: string, 
+    avatar?: string, 
+    color?: string, 
+    customTemplate?: any,
+    userEmail?: string,
+    userId?: string
+  ) {
     const res = await fetch(`${API_BASE}/rooms`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ hostName, avatar, color, customTemplate })
+      body: JSON.stringify({ hostName, avatar, color, customTemplate, userEmail, userId })
     });
     if (!res.ok) {
       const err = await res.json();

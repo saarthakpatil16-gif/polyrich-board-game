@@ -130,7 +130,12 @@ export class RoomManager {
     userId?: string,
     userEmail?: string
   ): BoardTemplateDTO {
-    const id = existingId || `tpl-${Date.now()}-${uuidv4().slice(0, 6)}`;
+    const cleanEmail = userEmail ? userEmail.trim().toLowerCase() : undefined;
+    // Generate stable, user-scoped ID so user custom templates are never conflated with default-expanded-48
+    const id = (existingId && existingId !== 'default-expanded-48')
+      ? existingId
+      : (cleanEmail ? `tpl-user-${cleanEmail.replace(/[^a-z0-9]/g, '_')}` : `tpl-${Date.now()}-${uuidv4().slice(0, 6)}`);
+
     const template: BoardTemplateDTO = {
       id,
       name: name || 'Custom Board Template',
@@ -140,7 +145,7 @@ export class RoomManager {
       punishments: JSON.parse(JSON.stringify(punishments)),
       rules: JSON.parse(JSON.stringify(rules)),
       userId,
-      userEmail,
+      userEmail: cleanEmail,
       updatedAt: new Date().toISOString()
     };
     this.templates.set(id, template);
@@ -152,12 +157,17 @@ export class RoomManager {
   public getTemplates(userIdentifier?: string): BoardTemplateDTO[] {
     const all = Array.from(this.templates.values());
     if (!userIdentifier) return all;
-    return all.filter(t => !t.userId || t.userId === userIdentifier || t.userEmail === userIdentifier || t.id.startsWith('default-'));
+    const clean = userIdentifier.trim().toLowerCase();
+    return all.filter(t => !t.userId || t.userId === userIdentifier || (t.userEmail && t.userEmail.toLowerCase() === clean) || t.id.startsWith('default-'));
   }
 
   public getUserTemplates(userIdentifier: string): BoardTemplateDTO[] {
     if (!userIdentifier) return [];
-    return Array.from(this.templates.values()).filter(t => t.userId === userIdentifier || t.userEmail === userIdentifier);
+    const clean = userIdentifier.trim().toLowerCase();
+    return Array.from(this.templates.values()).filter(t => 
+      (t.userId && t.userId.trim() === userIdentifier.trim()) || 
+      (t.userEmail && t.userEmail.trim().toLowerCase() === clean)
+    );
   }
 
   public getTemplate(id: string): BoardTemplateDTO | undefined {
@@ -168,7 +178,7 @@ export class RoomManager {
     if (userIdentifier) {
       const userTemplates = this.getUserTemplates(userIdentifier);
       if (userTemplates.length > 0) {
-        // Return latest user template
+        // Return latest user template with customized content
         return userTemplates[userTemplates.length - 1];
       }
     }
@@ -194,7 +204,8 @@ export class RoomManager {
     hostName: string, 
     avatar = 'token-1', 
     color = '#6366f1',
-    customTemplate?: BoardTemplateDTO | { tiles?: BoardTileDTO[]; rewards?: RewardDTO[]; punishments?: PunishmentDTO[]; rules?: GameRulesDTO; id?: string; name?: string; description?: string } | string
+    customTemplate?: BoardTemplateDTO | { tiles?: BoardTileDTO[]; rewards?: RewardDTO[]; punishments?: PunishmentDTO[]; rules?: GameRulesDTO; id?: string; name?: string; description?: string } | string,
+    userIdentifier?: string
   ): { room: RoomInstance; hostPlayer: PlayerDTO } {
     let code = this.generateRoomCode();
     while (this.rooms.has(code)) {
@@ -210,7 +221,11 @@ export class RoomManager {
     } else if (customTemplate && typeof customTemplate === 'object') {
       templateData = customTemplate;
       if (customTemplate.tiles && Array.isArray(customTemplate.tiles) && customTemplate.tiles.length > 0) {
-        const tplId = customTemplate.id || `tpl-${Date.now()}`;
+        const cleanEmail = userIdentifier && userIdentifier.includes('@') ? userIdentifier.trim().toLowerCase() : undefined;
+        const tplId = (customTemplate.id && customTemplate.id !== 'default-expanded-48')
+          ? customTemplate.id
+          : (cleanEmail ? `tpl-user-${cleanEmail.replace(/[^a-z0-9]/g, '_')}` : `tpl-${Date.now()}`);
+
         this.templates.set(tplId, {
           id: tplId,
           name: customTemplate.name || 'Custom Board',
@@ -219,13 +234,17 @@ export class RoomManager {
           rewards: customTemplate.rewards || DEFAULT_REWARDS,
           punishments: customTemplate.punishments || DEFAULT_PUNISHMENTS,
           rules: customTemplate.rules || DEFAULT_RULES,
+          userEmail: cleanEmail,
+          userId: cleanEmail ? undefined : userIdentifier,
           updatedAt: new Date().toISOString()
         });
+        this.defaultTemplateId = tplId;
         this.persistTemplates();
       }
     }
 
-    const defaultTemplate = this.templates.get(this.defaultTemplateId) || this.templates.get('default-expanded-48');
+    // If no custom template payload passed directly, resolve the host's account default template
+    const defaultTemplate = userIdentifier ? this.getDefaultTemplate(userIdentifier) : (this.templates.get(this.defaultTemplateId) || this.templates.get('default-expanded-48'));
     const selectedTemplate = (templateData && templateData.tiles && templateData.tiles.length > 0) ? templateData : defaultTemplate;
     const rules = selectedTemplate?.rules ? { ...selectedTemplate.rules } : { ...DEFAULT_RULES };
     const boardTiles = selectedTemplate?.tiles ? JSON.parse(JSON.stringify(selectedTemplate.tiles)) : createDefault48Tiles();

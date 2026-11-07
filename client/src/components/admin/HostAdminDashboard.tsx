@@ -250,6 +250,10 @@ export const HostAdminDashboard: React.FC<HostAdminDashboardProps> = ({
       const userIdent = googleUser?.email || googleUser?.sub;
       const previousTemplate = await api.getDefaultTemplate(userIdent);
       const tplName = customTemplateName.trim() || previousTemplate?.name || 'My Custom Board';
+      const userTplId = (previousTemplate?.id && previousTemplate.id !== 'default-expanded-48')
+        ? previousTemplate.id
+        : (googleUser?.email ? `tpl-user-${googleUser.email.toLowerCase().replace(/[^a-z0-9]/g, '_')}` : undefined);
+
       const savedTemplate = await api.saveTemplate({
         name: tplName,
         description: `Host saved board template${googleUser?.email ? ` (${googleUser.email})` : ''}`,
@@ -257,12 +261,15 @@ export const HostAdminDashboard: React.FC<HostAdminDashboardProps> = ({
         rewards,
         punishments,
         rules,
-        existingId: previousTemplate?.id,
+        existingId: userTplId,
         userId: googleUser?.sub,
         userEmail: googleUser?.email
       });
       if (savedTemplate?.template) {
         localStorage.setItem('polyrich_custom_template', JSON.stringify(savedTemplate.template));
+        if (googleUser?.email) {
+          localStorage.setItem(`polyrich_board_${googleUser.email.toLowerCase()}`, JSON.stringify(savedTemplate.template));
+        }
       }
 
       const val = await api.validateBoard(roomCode);
@@ -1555,6 +1562,10 @@ export const HostAdminDashboard: React.FC<HostAdminDashboardProps> = ({
                       try {
                         const userIdent = googleUser?.email || googleUser?.sub;
                         const previousTemplate = await api.getDefaultTemplate(userIdent);
+                        const userTplId = (previousTemplate?.id && previousTemplate.id !== 'default-expanded-48')
+                          ? previousTemplate.id
+                          : (googleUser?.email ? `tpl-user-${googleUser.email.toLowerCase().replace(/[^a-z0-9]/g, '_')}` : undefined);
+
                         const savedTpl = await api.saveTemplate({
                           name: tName,
                           description: `Host custom board template${googleUser?.email ? ` (${googleUser.email})` : ''}`,
@@ -1562,12 +1573,15 @@ export const HostAdminDashboard: React.FC<HostAdminDashboardProps> = ({
                           rewards,
                           punishments,
                           rules,
-                          existingId: previousTemplate?.id,
+                          existingId: userTplId,
                           userId: googleUser?.sub,
                           userEmail: googleUser?.email
                         });
                         if (savedTpl?.template) {
                           localStorage.setItem('polyrich_custom_template', JSON.stringify(savedTpl.template));
+                          if (googleUser?.email) {
+                            localStorage.setItem(`polyrich_board_${googleUser.email.toLowerCase()}`, JSON.stringify(savedTpl.template));
+                          }
                         }
                         soundFX.playCash();
                         setSaveStatus(`✓ Template "${tName}" saved! Future rooms will automatically load this board.`);

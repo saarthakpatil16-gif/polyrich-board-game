@@ -153,8 +153,9 @@ router.delete('/images/:filename', (req: Request, res: Response) => {
  */
 router.post('/rooms', (req: Request, res: Response) => {
   try {
-    const { hostName, avatar, color, customTemplate } = req.body;
-    const { room, hostPlayer } = roomManager.createRoom(hostName, avatar, color, customTemplate);
+    const { hostName, avatar, color, customTemplate, userEmail, userId } = req.body;
+    const userIdentifier = userEmail || userId;
+    const { room, hostPlayer } = roomManager.createRoom(hostName, avatar, color, customTemplate, userIdentifier);
 
     const host = req.get('host') || 'localhost:5173';
     const inviteUrl = `${req.protocol}://${host}/room/${room.code}`;

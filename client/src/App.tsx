@@ -34,6 +34,14 @@ const saveSessionForRoom = (roomCode: string, sessionId: string) => {
   localStorage.setItem(ROOM_KEY, code);
 };
 
+function isTemplateCustomized(tpl: any): boolean {
+  if (!tpl || !Array.isArray(tpl.tiles) || tpl.tiles.length === 0) return false;
+  if (tpl.id && tpl.id !== 'default-expanded-48') return true;
+  if (tpl.userEmail || tpl.userId) return true;
+  if (tpl.name && tpl.name !== 'Default Expanded 48-Tile Board') return true;
+  return tpl.tiles.some((t: any) => !!t.imageUrl);
+}
+
 export function App() {
   const [screen, setScreen] = useState<'HOME' | 'LOBBY' | 'GAME'>('HOME');
   const [isEditorOpen, setIsEditorOpen] = useState<boolean>(false);
@@ -70,31 +78,61 @@ export function App() {
   // Initialize from URL params or local storage for automatic reconnection & template load
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    // Invite links are generated as /room/:code. Also accept ?room=:code for
-    // older/shared links so guests land in the lobby with the code filled in.
     const pathRoomMatch = window.location.pathname.match(/^\/room\/([A-Za-z0-9]{6})\/?$/);
     const roomParam = params.get('room') || pathRoomMatch?.[1];
     if (roomParam) {
       setRoomCodeInput(roomParam.toUpperCase());
     }
 
-    // Check for saved template
-    const storedTpl = localStorage.getItem(TEMPLATE_KEY);
-    if (storedTpl) {
-      try {
-        setSavedTemplate(JSON.parse(storedTpl));
-      } catch (e) {
-        console.error(e);
-      }
+    // Load template: check account-specific storage first, then general storage
+    const userEmail = googleUser?.email;
+    const userKey = userEmail ? `polyrich_board_${userEmail.toLowerCase()}` : null;
+    let initialLocal: BoardTemplateDTO | null = null;
+    const userStored = userKey ? localStorage.getItem(userKey) : null;
+    const genericStored = localStorage.getItem(TEMPLATE_KEY);
+    if (userStored) {
+      try { initialLocal = JSON.parse(userStored); } catch {}
+    }
+    if (!initialLocal && genericStored) {
+      try { initialLocal = JSON.parse(genericStored); } catch {}
+    }
+    if (initialLocal) {
+      setSavedTemplate(initialLocal);
     }
 
-    // Templates are stored on the server so the host can use the same default
-    // board from another browser or device.
-    const userIdent = googleUser?.email || googleUser?.sub;
-    api.getDefaultTemplate(userIdent).then((template) => {
-      if (template?.id && Array.isArray(template.tiles)) {
-        setSavedTemplate(template);
-        localStorage.setItem(TEMPLATE_KEY, JSON.stringify(template));
+    // Templates are stored on the server so the host can use the same board from any device
+    const userIdent = userEmail || googleUser?.sub;
+    api.getDefaultTemplate(userIdent).then(async (serverTpl) => {
+      const serverIsCustom = isTemplateCustomized(serverTpl);
+      const localIsCustom = isTemplateCustomized(initialLocal);
+
+      if (serverIsCustom) {
+        // Server has a customized board template!
+        setSavedTemplate(serverTpl);
+        localStorage.setItem(TEMPLATE_KEY, JSON.stringify(serverTpl));
+        if (userKey) localStorage.setItem(userKey, JSON.stringify(serverTpl));
+      } else if (localIsCustom && initialLocal) {
+        // Local template is customized with photos/names, but server gave blank default (e.g. after container restart)
+        // Keep the local customized template and restore it to the server!
+        setSavedTemplate(initialLocal);
+        if (userIdent) {
+          try {
+            await api.saveTemplate({
+              name: initialLocal.name || 'My Custom Board',
+              description: `Restored board template (${userIdent})`,
+              tiles: initialLocal.tiles,
+              rewards: initialLocal.rewards || [],
+              punishments: initialLocal.punishments || [],
+              rules: initialLocal.rules,
+              userId: googleUser?.sub,
+              userEmail: userEmail
+            });
+          } catch (e) {
+            console.warn('Could not auto-restore template to server:', e);
+          }
+        }
+      } else if (serverTpl?.id && Array.isArray(serverTpl.tiles)) {
+        setSavedTemplate(serverTpl);
       }
     }).catch((error) => console.warn('Could not load the saved board template:', error));
 
@@ -168,13 +206,48 @@ export function App() {
     if (!playerName.trim()) {
       setPlayerName(user.name);
     }
+    const userKey = `polyrich_board_${user.email.toLowerCase()}`;
+    const userStored = localStorage.getItem(userKey);
+    const genericStored = localStorage.getItem(TEMPLATE_KEY);
+    let currentLocal: BoardTemplateDTO | null = null;
+    if (userStored) {
+      try { currentLocal = JSON.parse(userStored); } catch {}
+    }
+    if (!currentLocal && genericStored) {
+      try { currentLocal = JSON.parse(genericStored); } catch {}
+    }
+    if (currentLocal) {
+      setSavedTemplate(currentLocal);
+    }
+
     // Fetch and load custom board template linked to this Google account
     try {
       const userIdent = user.email || user.sub;
-      const tpl = await api.getDefaultTemplate(userIdent);
-      if (tpl?.id) {
-        setSavedTemplate(tpl);
-        localStorage.setItem(TEMPLATE_KEY, JSON.stringify(tpl));
+      const serverTpl = await api.getDefaultTemplate(userIdent);
+      const serverIsCustom = isTemplateCustomized(serverTpl);
+      const localIsCustom = isTemplateCustomized(currentLocal);
+
+      if (serverIsCustom) {
+        setSavedTemplate(serverTpl);
+        localStorage.setItem(TEMPLATE_KEY, JSON.stringify(serverTpl));
+        localStorage.setItem(userKey, JSON.stringify(serverTpl));
+      } else if (localIsCustom && currentLocal) {
+        // Auto-sync local custom template to this Google account on the server!
+        const saved = await api.saveTemplate({
+          name: currentLocal.name || 'My Custom Board',
+          description: `Custom board attached to ${user.email}`,
+          tiles: currentLocal.tiles,
+          rewards: currentLocal.rewards || [],
+          punishments: currentLocal.punishments || [],
+          rules: currentLocal.rules,
+          userId: user.sub,
+          userEmail: user.email
+        });
+        if (saved?.template) {
+          setSavedTemplate(saved.template);
+          localStorage.setItem(TEMPLATE_KEY, JSON.stringify(saved.template));
+          localStorage.setItem(userKey, JSON.stringify(saved.template));
+        }
       }
     } catch (e) {
       console.warn('Could not sync user template:', e);
@@ -202,7 +275,14 @@ export function App() {
       const templateToUse = (useCustomTemplate && savedTemplate && savedTemplate.tiles && savedTemplate.tiles.length > 0)
         ? savedTemplate
         : undefined;
-      const res = await api.createRoom(playerName.trim(), undefined, undefined, templateToUse);
+      const res = await api.createRoom(
+        playerName.trim(), 
+        undefined, 
+        undefined, 
+        templateToUse,
+        googleUser?.email,
+        googleUser?.sub
+      );
 
       saveSessionForRoom(res.roomCode, res.hostPlayer.sessionId);
 
@@ -550,18 +630,27 @@ export function App() {
         rules
       });
       // Also update saved template
+      const userTplId = (savedTemplate?.id && savedTemplate.id !== 'default-expanded-48')
+        ? savedTemplate.id
+        : (googleUser?.email ? `tpl-user-${googleUser.email.toLowerCase().replace(/[^a-z0-9]/g, '_')}` : 'host-default-template');
+
       const updatedTpl: BoardTemplateDTO = {
-        id: savedTemplate?.id || 'host-default-template',
+        id: userTplId,
         name: savedTemplate?.name || 'My Custom Board Template',
         description: 'Auto-saved board template',
         tiles,
         rewards,
         punishments,
         rules,
+        userId: googleUser?.sub,
+        userEmail: googleUser?.email,
         updatedAt: new Date().toISOString()
       };
       setSavedTemplate(updatedTpl);
       localStorage.setItem(TEMPLATE_KEY, JSON.stringify(updatedTpl));
+      if (googleUser?.email) {
+        localStorage.setItem(`polyrich_board_${googleUser.email.toLowerCase()}`, JSON.stringify(updatedTpl));
+      }
 
       const socket = getSocket();
       socket.emit('board_config_updated', { roomCode: gameState.roomCode });
@@ -679,7 +768,9 @@ export function App() {
                 <span>
                   {savedTemplate.tiles?.length || 48} tiles • {savedTemplate.tiles?.filter(t => !!t.imageUrl).length || 0} custom photos
                 </span>
-                <span className="text-emerald-400 font-medium">✓ Loaded</span>
+                <span className="text-emerald-400 font-medium">
+                  {googleUser?.email ? `✓ Attached to ${googleUser.email}` : '✓ Loaded'}
+                </span>
               </div>
             </div>
           )}
